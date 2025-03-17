@@ -1,0 +1,82 @@
+/* Cải thiện kiểu dáng cho navigation */
+nav.container {
+  display: flex;
+  justify-content: space-between; /* Đều các phần tử */
+  align-items: center; /* Căn giữa các phần tử dọc theo chiều dọc */
+  background-color: #2a4e7e; /* Màu nền */
+  color: white; /* Màu chữ trắng */
+  padding: 15px 30px; /* Khoảng cách cho thẻ nav */
+}
+
+nav.container h1 {
+  font-size: 24px;
+  font-weight: bold;
+  margin: 0;
+}
+
+nav.container h2 {
+  font-size: 18px;
+  margin: 0 20px;
+  cursor: pointer; /* Chuyển con trỏ thành tay khi hover */
+  transition: color 0.3s ease; /* Hiệu ứng chuyển màu khi hover */
+}
+
+nav.container h2:hover {
+  color: #f39c12; /* Màu vàng khi hover */
+}
+
+/* Cải thiện kiểu dáng cho các danh mục sản phẩm */
+.categories {
+  display: flex;
+  flex-wrap: wrap; /* Cho phép các phần tử ở trong categories được wrap khi không đủ chỗ */
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.categories .category {
+  background-color: #f9f9f9;
+  padding: 20 px;
+  border-radius: 8px;
+  width: 200px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.categories .category:hover {
+  transform: translateY(-5px); /* Đẩy lên một chút khi hover */
+  box-shadow: 0 6px 15px rgba(13, 74, 166, 0.15);
+}
+
+.categories .category h3 {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.categories .category ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.categories .category li {
+  font-size: 14px;
+  color: #555;
+}
+
+.categories .category li:hover {
+  color: #f39c12; /* Màu vàng khi hover */
+}
+nav.container a h2 {
+  color: white; /* Đặt màu chữ trắng cho h2 trong Link */
+  text-decoration: none; /* Loại bỏ gạch dưới */
+  transition: color 0.3s ease; /* Hiệu ứng chuyển màu khi hover */
+}
+
+nav.container a h2:hover {
+  color: #f39c12; /* Màu vàng khi hover */
+}
+
+/* CSS cho thẻ Link */
+nav.container a {
+  text-decoration: none; /* Loại bỏ gạch dưới */
+}
