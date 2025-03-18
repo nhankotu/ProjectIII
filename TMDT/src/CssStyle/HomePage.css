@@ -1,0 +1,45 @@
+/* Stylecss/HomePage.css */
+
+.home-page {
+  padding: 20px;
+}
+
+.home-page h1 {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 20px;
+}
+
+.home-page .container {
+  display: flex;
+  gap: 20px; /* Khoảng cách giữa các phần tử */
+  padding: 20px;
+}
+
+.home-page .category-names {
+  width: 16%;
+  /* Căn chỉnh danh sách danh mục sang bên trái */
+}
+
+.home-page .category-names h2 {
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+}
+
+.home-page .category-names ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.home-page .category-names li {
+  margin-bottom: 10px;
+  font-size: 1.2rem;
+}
+
+.home-page .container .container-product {
+  flex: 3; /* Chiếm nhiều không gian hơn */
+  display: flex box;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: flex-start;
+}

@@ -1,42 +1,36 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import Category from "./Category";
+import "../CssStyle/CategoryList.css";
 
-const categories = [
-  "Thời Trang Nam",
-  "Thời Trang Nữ",
-  "Điện Thoại & Phụ Kiện",
-  "Mẹ & Bé",
-  "Thiết Bị Điện Tử",
-  "Nhà Cửa & Đời Sống",
-  "Máy Tính & Laptop",
-  "Sắc Đẹp",
-  "Máy Ảnh & Máy Quay Phim",
-  "Sức Khỏe",
-  "Đồng Hồ",
-  "Giày Dép Nữ",
-  "Giày Dép Nam",
-  "Túi Ví Nữ",
-  "Thiết Bị Điện Gia Dụng",
-  "Phụ Kiện & Trang Sức Nữ",
-  "Thể Thao & Du Lịch",
-  "Bách Hóa Online",
-  "Ô Tô & Xe Máy & Xe Đạp",
-];
+const CategoryList = ({ onCategoryNamesFetched }) => {
+  const [categories, setCategories] = useState([]);
+  const [categoryNames, setCategoryNames] = useState([]);
+  useEffect(() => {
+    // Lấy danh mục sản phẩm từ API
+    fetch("http://localhost:5000/api/categories")
+      .then((response) => response.json())
+      .then((data) => {
+        setCategories(data); // Cập nhật danh mục và sản phẩm
+        const names = data.map((category) => category.name);
+        setCategoryNames(names);
+        if (onCategoryNamesFetched) {
+          onCategoryNamesFetched(names);
+        }
+      })
+      .catch((error) => console.error("Lỗi khi lấy dữ liệu:", error));
+  }, []);
 
-function CategoryList() {
   return (
     <div>
-      <h2>Danh Mục Sản Phẩm</h2>
-      <ul>
-        {categories.map((category, index) => (
-          <li key={index}>
-            {/* Sử dụng Link để điều hướng đến trang chi tiết danh mục */}
-            <Link to={`/category/${category}`}>{category}</Link>
-          </li>
-        ))}
-      </ul>
+      {categories.map((category) => (
+        <Category
+          key={category.id}
+          title={category.name}
+          products={category.products}
+        />
+      ))}
     </div>
   );
-}
+};
 
 export default CategoryList;

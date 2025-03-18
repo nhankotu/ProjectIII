@@ -1,11 +1,11 @@
 import React from "react";
 import { Link, Routes, Route } from "react-router-dom";
-import HomePage from "./Home/HomePage"; // Trang HomePage
-import SearchPage from "./Home/SearchPage"; // Trang Tìm kiếm
-import CartPage from "./Home/CartPage"; // Trang Giỏ hàng
-import ContactPage from "./Home/ContactPage"; // Trang Liên hệ shop
-import UserPage from "./Home/UserPage"; // Trang User
-import "../Stylecss/Home.css"; // Đảm bảo rằng bạn có file CSS tương ứng
+import HomePage from "../Home/HomePage"; // Trang HomePage
+import SearchPage from "../Home/SearchPage"; // Trang Tìm kiếm
+import CartPage from "../Home/CartPage"; // Trang Giỏ hàng
+import ContactPage from "../Home/ContactPage"; // Trang Liên hệ shop
+import UserPage from "../Home/UserPage"; // Trang User
+import "../CssStyle/Home.css"; // Đảm bảo rằng bạn có file CSS tương ứng
 
 function Home({ setIsLoggedIn }) {
   const handleLogout = () => {

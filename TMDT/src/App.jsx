@@ -11,6 +11,7 @@ import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
 import UserPage from "./pages/Home/UserPage"; // Trang User
 
+import { CartProvider } from "./components/contexts/CartContext";
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -34,25 +35,27 @@ function App() {
 
   return (
     <Router>
-      <Routes>
-        {/* Trang đăng nhập */}
-        <Route
-          path="/login"
-          element={<Login setIsLoggedIn={setIsLoggedIn} />}
-        />
+      <CartProvider>
+        <Routes>
+          {/* Trang đăng nhập */}
+          <Route
+            path="/login"
+            element={<Login setIsLoggedIn={setIsLoggedIn} />}
+          />
 
-        {/* Trang Home chính */}
-        <Route
-          path="/home/*"
-          element={<Home setIsLoggedIn={setIsLoggedIn} />}
-        />
+          {/* Trang Home chính */}
+          <Route
+            path="/home/*"
+            element={<Home setIsLoggedIn={setIsLoggedIn} />}
+          />
 
-        {/* Trang đăng ký */}
-        <Route path="/register" element={<Register />} />
+          {/* Trang đăng ký */}
+          <Route path="/register" element={<Register />} />
 
-        {/* Route cho trang không tìm thấy */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+          {/* Route cho trang không tìm thấy */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </CartProvider>
     </Router>
   );
 }

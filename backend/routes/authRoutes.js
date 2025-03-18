@@ -13,26 +13,34 @@ router.post("/register", async (req, res) => {
 
   try {
     // Kiểm tra xem người dùng đã tồn tại chưa
+    const [existingUsername] = await db
+      .promise()
+      .query("SELECT * FROM account WHERE username = ?", [username]);
+
+    if (existingUsername.length > 0) {
+      return res.status(400).json({ message: "Tên đăng nhập đã tồn tại" });
+    }
     const [existingUser] = await db
       .promise()
       .query("SELECT * FROM account WHERE email = ?", [email]);
-
+    //
     if (existingUser.length > 0) {
-      return res.status(400).json({ message: "Email đã tồn tại" });
+      return res.status(400).json({ message: "Email  đã tồn tại" });
     }
 
     // Lưu người dùng vào cơ sở dữ liệu mà không mã hóa mật khẩu
     await db.promise().query(
       "INSERT INTO account (username, email, password) VALUES (?, ?, ?)",
-      [username, email, password] // Không băm mật khẩu
+      [username, email, password] 
     );
 
     res.status(201).json({ message: "Đăng ký thành công!" });
   } catch (err) {
     console.error("❌ Error saving user:", err);
-    res
-      .status(500)
-      .json({ message: "Lỗi khi đăng ký người dùng", error: err.message });
+    res.status(500).json({
+      message: "Lỗi khi đăng ký người dùng: UserName đã tồn tại ",
+      error: err.message,
+    });
   }
 });
 

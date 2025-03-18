@@ -1,7 +1,7 @@
 // Category.js
 import React from "react";
-import "../Stylecss/Category.css"; // Đảm bảo bạn đã tạo file CSS tương ứng
-import Product from "./Product"; // Chúng ta sẽ tạo component Product sau
+import "../CssStyle/Category.css"; 
+import Product from "./Product"; 
 
 const Category = ({ title, products }) => {
   return (

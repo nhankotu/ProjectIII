@@ -1,5 +1,5 @@
 // src/pages/User.js
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 function User() {
@@ -16,7 +16,7 @@ function User() {
     <div>
       <h2>Trang Người dùng</h2>
       <p>Thông tin người dùng sẽ được hiển thị tại đây.</p>
-
+      {/* update user ( img, use name,text,address,phone )*/}
       {/* Nút đăng xuất */}
       <button onClick={handleLogout}>Đăng xuất</button>
     </div>

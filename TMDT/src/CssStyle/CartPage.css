@@ -1,0 +1,40 @@
+/* CartPage.css */
+.cart-page {
+  padding: 20px;
+}
+
+.cart-page ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.cart-page li {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.cart-page img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  margin-right: 15px;
+}
+
+.cart-page h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.cart-page .total {
+  margin-top: 20px;
+  font-size: 20px;
+  font-weight: bold;
+}
+.cart-page li {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 10px;
+}

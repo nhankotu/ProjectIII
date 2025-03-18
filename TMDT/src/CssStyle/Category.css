@@ -1,0 +1,23 @@
+/* Category Container */
+.category {
+  width: 100%;
+  margin-bottom: 30px; /* Tạo khoảng cách giữa các danh mục */
+}
+
+/* Tiêu đề danh mục */
+.category h2 {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 15px;
+  text-align: left; /* Căn trái */
+  padding-left: 10px; /* Giữ khoảng cách với viền */
+  width: 100%; /* Chiếm toàn bộ dòng */
+}
+
+/* Danh sách sản phẩm hiển thị dưới mỗi tiêu đề */
+.product-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: flex-start; /* Căn trái để các sản phẩm nằm đúng theo danh mục */
+}

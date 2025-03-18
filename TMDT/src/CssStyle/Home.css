@@ -1,0 +1,30 @@
+/* Cải thiện kiểu dáng cho navigation */
+nav.container {
+  display: flex;
+  justify-content: space-between; /* Đều các phần tử */
+  align-items: center; /* Căn giữa các phần tử dọc theo chiều dọc */
+  background-color: #2a4e7e; /* Màu nền */
+  color: white; /* Màu chữ trắng */
+  padding: 15px 30px; /* Khoảng cách cho thẻ nav */
+}
+
+nav.container h1 {
+  font-size: 24px;
+  font-weight: bold;
+  margin: 0;
+}
+
+nav.container h2 {
+  font-size: 18px;
+  margin: 0 20px;
+  cursor: pointer; /* Chuyển con trỏ thành tay khi hover */
+  transition: color 0.3s ease; /* Hiệu ứng chuyển màu khi hover */
+}
+
+nav.container h2:hover {
+  color: #f39c12; /* Màu vàng khi hover */
+}
+nav.container a {
+  color: white; /* Chỉnh màu chữ thành trắng */
+  text-decoration: none; /* Loại bỏ gạch chân */
+}
