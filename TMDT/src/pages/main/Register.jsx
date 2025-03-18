@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { Navigate } from "react-router-dom";
-import "../CssStyle/Register.css";
+import "../../CssStyle/Register.css";
 
 function Register() {
   const [username, setUsername] = useState("");

@@ -5,10 +5,10 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import Home from "./pages/Home"; // Trang chính Home
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import NotFound from "./pages/NotFound";
+import Home from "./pages/main/Home"; // Trang chính Home
+import Login from "./pages/main/Login";
+import Register from "./pages/main/Register";
+import NotFound from "./pages/main/NotFound";
 import UserPage from "./pages/Home/UserPage"; // Trang User
 
 import { CartProvider } from "./components/contexts/CartContext";
