@@ -1,7 +1,8 @@
-// backend/controllers/authController.js
-
 const bcrypt = require("bcryptjs");
-const db = require("../config/db"); // Kết nối cơ sở dữ liệu
+const db = require("../config/db");
+const EmailVerifier = require("email-verifier");
+
+const verifier = new EmailVerifier("your_api_key"); // Thay thế bằng API key thực của bạn
 
 // Hàm xử lý đăng ký
 exports.register = async (req, res) => {
@@ -16,15 +17,26 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: "Email đã tồn tại" });
     }
 
-    // Mã hóa mật khẩu trước khi lưu vào cơ sở dữ liệu
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Xác thực email
+    verifier.verify(email, async (err, data) => {
+      if (err) {
+        return res.status(500).json({ message: "Lỗi xác thực email" });
+      }
 
-    // Lưu người dùng vào cơ sở dữ liệu
-    const insertQuery =
-      "INSERT INTO account (username, email, password) VALUES (?, ?, ?)";
-    await db.execute(insertQuery, [username, email, hashedPassword]);
+      if (!data.smtpCheck) {
+        return res.status(400).json({ message: "Email không tồn tại" });
+      }
 
-    res.status(201).json({ message: "Đăng ký thành công" });
+      // Mã hóa mật khẩu trước khi lưu vào cơ sở dữ liệu
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Lưu người dùng vào cơ sở dữ liệu
+      const insertQuery =
+        "INSERT INTO account (username, email, password) VALUES (?, ?, ?)";
+      await db.execute(insertQuery, [username, email, hashedPassword]);
+
+      res.status(201).json({ message: "Đăng ký thành công" });
+    });
   } catch (err) {
     console.error("Lỗi khi đăng ký:", err);
     res.status(500).json({ message: "Lỗi khi đăng ký người dùng" });

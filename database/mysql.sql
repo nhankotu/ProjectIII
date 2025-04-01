@@ -1,4 +1,5 @@
 -- Tạo bảng account
+
 CREATE TABLE account (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(255) NOT NULL,
@@ -108,4 +109,3 @@ CREATE TABLE shipping (
     shipping_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES orders(id)
 );
-account

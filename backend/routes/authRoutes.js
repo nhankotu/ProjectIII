@@ -29,10 +29,12 @@ router.post("/register", async (req, res) => {
     }
 
     // Lưu người dùng vào cơ sở dữ liệu mà không mã hóa mật khẩu
-    await db.promise().query(
-      "INSERT INTO account (username, email, password) VALUES (?, ?, ?)",
-      [username, email, password] 
-    );
+    await db
+      .promise()
+      .query(
+        "INSERT INTO account (username, email, password) VALUES (?, ?, ?)",
+        [username, email, password]
+      );
 
     res.status(201).json({ message: "Đăng ký thành công!" });
   } catch (err) {
@@ -77,20 +79,17 @@ router.post("/login", async (req, res) => {
     }
 
     // Tạo JWT token
-    const token = jwt.sign(
-      { userId: user.residentID },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "1h",
-      }
-    );
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
 
-    res.status(200).json({}); // tra ve token cho frontend
+    res.status(200).json({ token }); // tra ve token cho frontend
   } catch (err) {
     console.error("❌ Database error:", err);
     res
       .status(500)
       .json({ message: "Lỗi khi đăng nhập người dùng", error: err.message });
+    c;
   }
 });
 
