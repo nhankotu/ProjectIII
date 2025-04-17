@@ -1,0 +1,117 @@
+/* Căn giữa toàn bộ trang */
+.user-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh; /* Chiếm toàn bộ chiều cao màn hình */
+  background-color: #f5f5f5;
+  font-family: Arial, sans-serif;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* Khung nội dung của trang user */
+.user-page {
+  width: 100%;
+  max-width: 800px; /* Tăng chiều rộng tối đa của phần tử */
+  background-color: #fff;
+  padding: 40px; /* Tăng padding cho không gian nội dung rộng rãi hơn */
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+/* Style cho tiêu đề trang */
+.user-page h2 {
+  margin-bottom: 20px;
+  font-size: 28px; /* Tăng kích thước chữ tiêu đề */
+  color: #333;
+}
+
+/* Hiển thị ảnh đại diện */
+.user-avatar {
+  width: 150px; /* Tăng kích thước ảnh đại diện */
+  height: 150px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 20px;
+  border: 3px solid #007bff;
+}
+
+/* Khung viền cho thông tin người dùng */
+.user-info {
+  border: 2px solid #007bff; /* Khung viền xanh dương */
+  border-radius: 10px; /* Bo góc */
+  padding: 25px; /* Tăng padding cho khung viền */
+  margin-top: 20px;
+}
+
+.user-details {
+  margin-top: 20px;
+  text-align: left; /* Căn trái cho các thông tin */
+}
+
+.user-field {
+  margin-bottom: 20px; /* Tăng khoảng cách giữa các trường thông tin */
+  display: flex;
+  justify-content: space-between;
+  font-size: 18px; /* Tăng kích thước chữ */
+  color: #555;
+}
+
+.label {
+  font-weight: bold;
+  color: #333;
+}
+
+.value {
+  color: #555;
+}
+
+/* Style cho các nút button */
+.user-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 20px; /* Tăng khoảng cách giữa các nút */
+  margin-top: 30px; /* Thêm khoảng cách trên */
+}
+
+.user-buttons button {
+  padding: 12px 25px; /* Tăng kích thước padding */
+  font-size: 18px; /* Tăng kích thước chữ */
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.user-buttons button:hover {
+  background-color: #0056b3;
+  transform: scale(1.05);
+}
+
+/* Style cho các nút đăng nhập và đăng ký khi chưa đăng nhập */
+.auth-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 20px; /* Tăng khoảng cách giữa các nút */
+  margin-top: 30px;
+}
+
+.auth-buttons button {
+  padding: 12px 25px; /* Tăng kích thước padding */
+  font-size: 18px; /* Tăng kích thước chữ */
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.auth-buttons button:hover {
+  background-color: #1e7e34;
+  transform: scale(1.05);
+}

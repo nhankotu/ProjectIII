@@ -1,8 +1,9 @@
 import React, { useState } from "react";
+import "../CssStyle/UserUpdate.css";
 
 function UserUpdate({ user, setUser, handleUpdate, setShowUpdate }) {
   return (
-    <div>
+    <div className="user-update-page">
       <h2>Cập nhật thông tin</h2>
       <input
         type="text"
@@ -28,8 +29,10 @@ function UserUpdate({ user, setUser, handleUpdate, setShowUpdate }) {
         onChange={(e) => setUser({ ...user, phone: e.target.value })}
         placeholder="Số điện thoại"
       />
-      <button onClick={handleUpdate}>Lưu thay đổi</button>
-      <button onClick={() => setShowUpdate(false)}>Hủy</button>
+      <div className="button-container">
+        <button onClick={handleUpdate}>Lưu thay đổi</button>
+        <button onClick={() => setShowUpdate(false)}>Hủy</button>
+      </div>
     </div>
   );
 }

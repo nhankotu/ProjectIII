@@ -1,4 +1,3 @@
-//register.jsx
 import React, { useState } from "react";
 import axios from "axios";
 import { Navigate } from "react-router-dom";
@@ -10,7 +9,10 @@ function Register() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
-  const [goToLogin, setgotoLogin] = useState(false);
+  const [goToLogin, setGotoLogin] = useState(false);
+  const [showOTPForm, setShowOTPForm] = useState(false);
+  const [otp, setOtp] = useState("");
+
   // Hàm xử lý khi form được submit
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,23 +34,51 @@ function Register() {
         }
       );
       console.log(response.data); // Log kết quả từ backend
-      // Hiển thị thông báo thành công
+
+      // Hiển thị thông báo thành công và yêu cầu nhập OTP
       setMessage(response.data.message);
+      setShowOTPForm(true); // Hiển thị form OTP
     } catch (err) {
       // Hiển thị lỗi nếu có
       setMessage(err.response?.data?.message || "Có lỗi xảy ra");
     }
   };
 
+  // Hàm xử lý xác minh OTP
+  const handleVerifyOtp = async () => {
+    if (!otp) {
+      setMessage("Vui lòng nhập mã OTP.");
+      return;
+    }
+
+    try {
+      const res = await axios.post(
+        "http://localhost:5000/api/auth/verify-otp",
+        {
+          email,
+          otp,
+        }
+      );
+      setMessage(res.data.message);
+      if (res.data.success) {
+        setGotoLogin(true); // Chuyển sang trang login nếu xác minh thành công
+      }
+    } catch (err) {
+      setMessage("OTP không chính xác hoặc đã hết hạn.");
+    }
+  };
+
+  // Điều hướng về trang login sau khi xác minh thành công
   if (goToLogin) {
     return <Navigate to="/login" />;
   }
+
   return (
-    <div class="register">
-      <h1>Register</h1>
+    <div className="register">
+      <h1>Đăng ký</h1>
       <form onSubmit={handleSubmit}>
         <div>
-          <label htmlFor="username">Username:</label>
+          <label htmlFor="username">Tên người dùng:</label>
           <input
             type="text"
             id="username"
@@ -68,7 +98,7 @@ function Register() {
           />
         </div>
         <div>
-          <label htmlFor="password">Password:</label>
+          <label htmlFor="password">Mật khẩu:</label>
           <input
             type="password"
             id="password"
@@ -78,7 +108,7 @@ function Register() {
           />
         </div>
         <div>
-          <label htmlFor="confirmPassword">Return password:</label>
+          <label htmlFor="confirmPassword">Xác nhận mật khẩu:</label>
           <input
             type="password"
             id="confirmPassword"
@@ -87,11 +117,25 @@ function Register() {
             required
           />
         </div>
-        <button type="submit">Register</button>
-        <button type="button" onClick={() => setgotoLogin(true)}>
-          Login{" "}
+        <button type="submit">Đăng ký</button>
+        <button type="button" onClick={() => setGotoLogin(true)}>
+          Đăng nhập
         </button>
       </form>
+      {showOTPForm && (
+        <div className="otp-form">
+          <label>Nhập mã OTP đã gửi về email:</label>
+          <input
+            type="text"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value)}
+            required
+          />
+          <button type="button" onClick={handleVerifyOtp}>
+            Xác minh OTP
+          </button>
+        </div>
+      )}
       {message && <p>{message}</p>}{" "}
       {/* Hiển thị thông báo lỗi hoặc thành công */}
     </div>

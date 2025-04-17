@@ -15,14 +15,6 @@ function HomePage() {
       <h1>NTH-SHOP</h1>
       {/* Hiển thị danh sách tên danh mục và sản phẩm */}
       <div className="container">
-        <div className="category-names">
-          <h2>Danh sách danh mục:</h2>
-          <ul>
-            {categoryNames.map((name, index) => (
-              <li key={index}>{name}</li>
-            ))}
-          </ul>
-        </div>
         <div className="container-product">
           {/* Hiển thị danh mục sản phẩm */}
           <CategoryList onCategoryNamesFetched={handleCategoryNamesFetched} />
