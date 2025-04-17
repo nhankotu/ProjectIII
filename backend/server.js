@@ -6,7 +6,6 @@ const cors = require("cors");
 const authRoutes = require("./routes/authRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
 const userRoutes = require("./routes/UserRoutes");
-const otpRoutes = require("./routes/otpRoutes");
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -29,8 +28,6 @@ app.use(express.json());
 app.use("/api/auth", authRoutes); // Đăng ký, đăng nhập
 app.use("/api/user", userRoutes); // API lấy thông tin người dùng
 app.use("/api", categoryRoutes); // Danh mục sản phẩm
-app.use("/api/otp", otpRoutes);
-
 // Khởi động server
 app.listen(port, "0.0.0.0", () => {
   console.log(`✅ Server đang chạy tại http://localhost:${port}`);
