@@ -31,6 +31,9 @@ function UserUpdate({ user, setUser, handleUpdate, setShowUpdate }) {
       />
       <div className="button-container">
         <button onClick={handleUpdate}>Lưu thay đổi</button>
+        <div className="bg-blue-500 text-white p-6">
+          Tailwind CSS is working!
+        </div>
         <button onClick={() => setShowUpdate(false)}>Hủy</button>
       </div>
     </div>
