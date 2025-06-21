@@ -13,51 +13,26 @@ CREATE TABLE account (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE otp_storage (
+  email VARCHAR(255) PRIMARY KEY,  -- Sử dụng email làm khóa chính
+  otp VARCHAR(10) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+
 -- Tạo bảng products
 CREATE TABLE products (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
+    name VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_vi_0900_ai_ci NOT NULL,
+    description TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_vi_0900_ai_ci,
     price DECIMAL(10, 2) NOT NULL,
     imageURL VARCHAR(255),
     stock INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- Tạo bảng orders
-CREATE TABLE orders (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    account_id INT,
-    total DECIMAL(10, 2) NOT NULL,
-    status VARCHAR(50) DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (account_id) REFERENCES account(id)
-);
-
--- Tạo bảng order_items
-CREATE TABLE order_items (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    order_id INT,
-    product_id INT,
-    quantity INT NOT NULL,
-    price DECIMAL(10, 2) NOT NULL,
-    FOREIGN KEY (order_id) REFERENCES orders(id),
-    FOREIGN KEY (product_id) REFERENCES products(id)
-);
-
--- Tạo bảng reviews
-CREATE TABLE reviews (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    product_id INT,
-    account_id INT,
-    rating INT,  -- Loại bỏ CHECK constraint nếu MySQL không hỗ trợ
-    review_text TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (product_id) REFERENCES products(id),
-    FOREIGN KEY (account_id) REFERENCES account(id)
-);
-
+)
+ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_vi_0900_ai_ci;
 -- Tạo bảng categories
 CREATE TABLE categories (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -67,45 +42,16 @@ CREATE TABLE categories (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Tạo bảng product_categories
-CREATE TABLE product_categories (
-    product_id INT,
-    category_id INT,
-    PRIMARY KEY (product_id, category_id),
-    FOREIGN KEY (product_id) REFERENCES products(id),
-    FOREIGN KEY (category_id) REFERENCES categories(id)
-);
-
--- Tạo bảng cart
-CREATE TABLE cart (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    account_id INT,
-    product_id INT,
-    quantity INT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (account_id) REFERENCES account(id),
-    FOREIGN KEY (product_id) REFERENCES products(id)
-);
 
 -- Tạo bảng payment
 CREATE TABLE payment (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    order_id INT,
-    payment_method VARCHAR(100),
-    amount DECIMAL(10, 2) NOT NULL,
-    status VARCHAR(50) DEFAULT 'pending',
-    payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (order_id) REFERENCES orders(id)
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  transaction_no VARCHAR(50),        -- Mã giao dịch VNPAY
+  order_info VARCHAR(255),           -- Thông tin đơn hàng (ví dụ: "Thanh toán đơn hàng")
+  payment_method VARCHAR(100),       -- "vnpay"
+  bank_code VARCHAR(50),             -- Ví dụ: "NCB"
+  amount DECIMAL(10, 2) NOT NULL,    -- Số tiền thanh toán (đơn vị: VND)
+  status VARCHAR(50) DEFAULT 'pending', -- "success", "fail", v.v.
+  payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tạo bảng shipping
-CREATE TABLE shipping (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    order_id INT,
-    shipping_address VARCHAR(255),
-    shipping_method VARCHAR(100),
-    shipping_status VARCHAR(50) DEFAULT 'pending',
-    shipping_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (order_id) REFERENCES orders(id)
-);

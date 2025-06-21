@@ -1,74 +1,86 @@
-// controllers/otpController.js
-const db = require("../config/db");
+require("dotenv").config({ path: "../.env" });
+const validator = require("validator");
+const otpGenerator = require("otp-generator");
 const nodemailer = require("nodemailer");
-const OTP_EXPIRY_TIME = 5 * 60 * 1000; // OTP hết hạn sau 5 phút
+const db = require("../config/db");
 
-// Tạo OTP ngẫu nhiên
-const generateOTP = () => {
-  return Math.floor(100000 + Math.random() * 900000); // Tạo OTP 6 chữ số
-};
+const sendOTP = async (req, res) => {
+  const { email, username } = req.body;
+  console.log(email, username);
+  // Validate input
+  if (!email || !username) {
+    return res
+      .status(400)
+      .send({ message: "Email và tên người dùng là bắt buộc." });
+  }
 
-// Gửi OTP qua email
-const sendOTP = async (userId, email) => {
-  const otp = generateOTP();
+  if (!validator.isEmail(email)) {
+    return res.status(400).send({ message: "Địa chỉ email không hợp lệ." });
+  }
 
-  // Lưu OTP vào cơ sở dữ liệu với thời gian hết hạn
-  await db
-    .promise()
-    .query("INSERT INTO otp (userId, otp, expiresAt) VALUES (?, ?, ?)", [
-      userId,
-      otp,
-      new Date(Date.now() + OTP_EXPIRY_TIME), // Đặt thời gian hết hạn
-    ]);
-
-  // Cấu hình Nodemailer để gửi email
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
+  // Generate OTP
+  const otp = otpGenerator.generate(6, {
+    upperCase: false,
+    specialChars: false,
   });
 
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to: email,
-    subject: "Xác thực OTP",
-    text: `Mã OTP của bạn là: ${otp}`,
-  };
+  // Calculate expiration (5 minutes from now)
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
   try {
+    // Kiểm tra xem email đã có trong bảng OTP chưa
+    const [existing] = await db
+      .promise()
+      .query("SELECT * FROM otp_storage WHERE email = ?", [email]);
+    if (!existing || existing.length === 0) {
+      // Nếu chưa tồn tại thì INSERT
+      await db
+        .promise()
+        .query(
+          "INSERT INTO otp_storage (email, otp, expires_at) VALUES (?, ?, ?)",
+          [email, otp, expiresAt]
+        );
+    } else if (existing && existing[0].expires_at > new Date()) {
+      // Nếu tồn tại và chưa hết hạn thì trả lại lỗi
+      return res
+        .status(200)
+        .send({ message: "Bạn đã nhận được OTP vui lòng không spam " });
+    }
+
+    if (existing.length > 0) {
+      // Nếu đã tồn tại thì UPDATE
+      await db
+        .promise()
+        .query(
+          "UPDATE otp_storage SET otp = ?, expires_at = ? WHERE email = ?",
+          [otp, expiresAt, email]
+        );
+    }
+
+    // Send email
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+    console.log(process.env.EMAIL_USER);
+    const username = email.split("@")[0];
+    console.log(username);
+    const mailOptions = {
+      from: process.env.EMAIL,
+      to: email,
+      subject: "Xác minh OTP",
+      text: `Xin chào ${username}, mã OTP của bạn là: ${otp}`,
+    };
+
     await transporter.sendMail(mailOptions);
+    return res.status(200).send({ message: `OTP đã gửi đến email: ${email}` });
   } catch (error) {
-    throw new Error("Lỗi khi gửi OTP qua email");
+    console.error("Lỗi gửi email hoặc lưu OTP:", error);
+    return res.status(500).send({ message: "Lỗi xử lý OTP." });
   }
 };
 
-// Xác thực OTP
-const verifyOTP = async (userId, otp) => {
-  const [result] = await db
-    .promise()
-    .query(
-      "SELECT * FROM otp WHERE userId = ? ORDER BY createdAt DESC LIMIT 1",
-      [userId]
-    );
-
-  if (result.length === 0) {
-    return { status: false, message: "Không tìm thấy OTP cho người dùng này" };
-  }
-
-  const otpData = result[0];
-  const currentTime = new Date();
-
-  if (currentTime > new Date(otpData.expiresAt)) {
-    return { status: false, message: "OTP đã hết hạn" };
-  }
-
-  if (otpData.otp !== otp) {
-    return { status: false, message: "OTP không đúng" };
-  }
-
-  return { status: true, message: "Xác thực OTP thành công" };
-};
-
-module.exports = { sendOTP, verifyOTP };
+module.exports = sendOTP;

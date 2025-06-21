@@ -7,12 +7,18 @@ const router = express.Router();
 // Lấy tất cả danh mục sản phẩm và sản phẩm liên quan
 router.get("/categories", (req, res) => {
   const query = `
-    SELECT categories.id AS categoryId, categories.name AS categoryName, categories.description AS categoryDescription,
-           products.id AS productId, products.name AS productName, products.description AS productDescription, 
-           products.price AS productPrice, products.stock AS productStock, products.imageURL AS productImageURL
-    FROM categories
-    LEFT JOIN product_categories ON categories.id = product_categories.category_id
-    LEFT JOIN products ON product_categories.product_id = products.id
+  SELECT 
+    categories.id AS categoryId,
+    categories.name AS categoryName,
+    categories.description AS categoryDescription,
+    products.id AS productId,
+    products.name AS productName,
+    products.description AS productDescription,
+    products.price AS productPrice,
+    products.stock AS productStock,
+    products.imageURL AS productImageURL
+FROM categories
+LEFT JOIN products ON categories.id = products.IDcategory;
   `;
 
   db.query(query, (err, results) => {

@@ -8,7 +8,8 @@ const categoryRoutes = require("./routes/categoryRoutes");
 const userRoutes = require("./routes/UserRoutes");
 const app = express();
 const port = process.env.PORT || 5000;
-
+const paymentRoutes = require("./routes/paymentRoutes");
+const productRoutes = require("./routes/productRoutes");
 // Cấu hình middleware cho CORS
 const corsOptions = {
   origin: [
@@ -28,7 +29,9 @@ app.use(express.json());
 app.use("/api/auth", authRoutes); // Đăng ký, đăng nhập
 app.use("/api/user", userRoutes); // API lấy thông tin người dùng
 app.use("/api", categoryRoutes); // Danh mục sản phẩm
-// Khởi động server
+//app.use("api/");
+app.use("/api/payment", paymentRoutes);
+app.use("/api", productRoutes);
 app.listen(port, "0.0.0.0", () => {
   console.log(`✅ Server đang chạy tại http://localhost:${port}`);
 });
