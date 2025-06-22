@@ -9,9 +9,6 @@ const transporter = nodemailer.createTransport({
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
-
-    // user: "tranduchai3241@gmail.com", // Thay đổi thành email của bạn
-    // pass: "Nhan5404@", // Thay đổi thành mật khẩu ứng dụng của bạn
   },
 });
 

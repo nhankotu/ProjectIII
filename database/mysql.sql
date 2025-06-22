@@ -1,3 +1,5 @@
+CREATE DATABASE webshop;
+
 -- Tạo bảng account
 
 CREATE TABLE account (
