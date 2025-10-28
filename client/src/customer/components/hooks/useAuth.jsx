@@ -7,17 +7,42 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in on app start
+    // Kiểm tra cả localStorage VÀ server session
     const checkAuth = async () => {
       try {
         const token = localStorage.getItem("token");
         const userData = localStorage.getItem("user");
 
+        // Ưu tiên kiểm tra server session trước
+        try {
+          const response = await fetch("/api/auth/check", {
+            method: "GET",
+            credentials: "include", // Quan trọng: gửi session cookie
+          });
+
+          if (response.ok) {
+            const serverUser = await response.json();
+            console.log("User authenticated by server:", serverUser);
+
+            // Đồng bộ với localStorage
+            localStorage.setItem("user", JSON.stringify(serverUser));
+            setUser(serverUser);
+            setLoading(false);
+            return;
+          }
+        } catch (serverError) {
+          console.log("Server auth check failed, falling back to localStorage");
+        }
+
+        // Fallback: kiểm tra localStorage
         if (token && userData) {
-          setUser(JSON.parse(userData));
+          const parsedUser = JSON.parse(userData);
+          console.log("Using user from localStorage:", parsedUser);
+          setUser(parsedUser);
         }
       } catch (error) {
         console.error("Auth check failed:", error);
+        // Clear invalid data
         localStorage.removeItem("token");
         localStorage.removeItem("user");
       } finally {
@@ -28,83 +53,52 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
+  // Hàm login thật - gọi API server
   const login = async (email, password) => {
     try {
       setLoading(true);
 
-      // Mock login API call
-      const mockUser = {
-        id: 1,
-        email: email,
-        name: "Nguyễn Văn A",
-        phone: "0123456789",
-        avatar: "/images/avatar-default.jpg",
-        addresses: [
-          {
-            id: 1,
-            name: "Nhà riêng",
-            phone: "0123456789",
-            address: "123 Trần Duy Hưng, Trung Hoà, Cầu Giấy, Hà Nội",
-            isDefault: true,
-          },
-        ],
-      };
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (response.ok) {
+        const result = await response.json();
 
-      // Mock successful login
-      const token = "mock-jwt-token";
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(mockUser));
-      setUser(mockUser);
+        // Lưu thông tin user
+        localStorage.setItem("user", JSON.stringify(result.user));
+        setUser(result.user);
 
-      return { success: true, user: mockUser };
+        return { success: true, user: result.user };
+      } else {
+        const error = await response.json();
+        return { success: false, error: error.message || "Đăng nhập thất bại" };
+      }
     } catch (error) {
-      return { success: false, error: "Đăng nhập thất bại" };
+      return { success: false, error: "Lỗi kết nối" };
     } finally {
       setLoading(false);
     }
   };
 
-  const register = async (userData) => {
+  const logout = async () => {
     try {
-      setLoading(true);
-
-      // Mock register API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // Auto login after register
-      return await login(userData.email, userData.password);
+      // Gọi API logout server
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
     } catch (error) {
-      return { success: false, error: "Đăng ký thất bại" };
+      console.error("Logout API error:", error);
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setUser(null);
-  };
-
-  const updateProfile = async (profileData) => {
-    try {
-      setLoading(true);
-
-      // Mock update API call
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      const updatedUser = { ...user, ...profileData };
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-      setUser(updatedUser);
-
-      return { success: true, user: updatedUser };
-    } catch (error) {
-      return { success: false, error: "Cập nhật thất bại" };
-    } finally {
-      setLoading(false);
+      // Clear client state
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      setUser(null);
     }
   };
 
@@ -112,9 +106,7 @@ export const AuthProvider = ({ children }) => {
     user,
     loading,
     login,
-    register,
     logout,
-    updateProfile,
     isAuthenticated: !!user,
   };
 

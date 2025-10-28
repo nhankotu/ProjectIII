@@ -3,80 +3,125 @@ import { useState, useEffect } from "react";
 export const useProducts = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    fetchProducts();
-  }, []);
 
   const fetchProducts = async () => {
     try {
-      setLoading(true);
-      // Mock data
-      const mockProducts = [
-        {
-          id: 1,
-          name: "Áo thun nam cổ tròn",
-          price: 150000,
-          stock: 45,
-          category: "Thời trang",
-          status: "active",
-          sales: 23,
-          images: ["https://via.placeholder.com/300x300?text=Áo+Thun+1"],
-          videos: [],
-          description: "Áo thun nam chất liệu cotton mềm mại",
-          createdAt: "2024-09-15",
-        },
-        {
-          id: 2,
-          name: "Quần jeans nữ",
-          price: 350000,
-          stock: 12,
-          category: "Thời trang",
-          status: "active",
-          sales: 15,
-          images: ["https://via.placeholder.com/300x300?text=Quần+Jeans"],
-          videos: [],
-          description: "Quần jeans nữ form slim fit",
-          createdAt: "2024-09-20",
-        },
-      ];
+      const res = await fetch("http://localhost:5000/api/products");
+      const data = await res.json();
 
-      setProducts(mockProducts);
-    } catch (err) {
-      setError(err.message);
+      const processedProducts = data.map((product) => ({
+        ...product,
+        id: product._id,
+        stock: product.stock || 0,
+        sales: product.sales || 0,
+        status: product.status || "active",
+      }));
+
+      setProducts(processedProducts);
+    } catch (error) {
+      console.error("Error fetching products:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const addProduct = (newProduct) => {
-    const product = {
-      id: products.length + 1,
-      ...newProduct,
-      sales: 0,
-      createdAt: new Date().toISOString().split("T")[0],
-    };
-    setProducts((prev) => [product, ...prev]);
+  const addProduct = async (productData) => {
+    try {
+      const res = await fetch("http://localhost:5000/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(productData),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        const newProductWithId = {
+          ...data.product,
+          id: data.product._id,
+          stock: data.product.stock || 0,
+          sales: data.product.sales || 0,
+        };
+
+        setProducts((prev) => [newProductWithId, ...prev]);
+        return { success: true, message: "✅ Thêm sản phẩm thành công!" };
+      } else {
+        return {
+          success: false,
+          message: "❌ Lỗi: " + (data.message || "Không thể thêm sản phẩm"),
+        };
+      }
+    } catch (error) {
+      console.error("Lỗi khi thêm sản phẩm:", error);
+      return { success: false, message: "❌ Không thể kết nối server." };
+    }
+  };
+  // Thêm hàm deleteProduct
+  const deleteProduct = async (productId) => {
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/products/${productId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setProducts((prev) => prev.filter((p) => p.id !== productId));
+        return { success: true, message: data.message };
+      } else {
+        return {
+          success: false,
+          message: data.message || "Không thể xóa sản phẩm",
+        };
+      }
+    } catch (error) {
+      console.error("Lỗi khi xóa sản phẩm:", error);
+      return { success: false, message: "❌ Không thể kết nối server." };
+    }
   };
 
-  const updateProduct = (productId, updatedData) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === productId ? { ...p, ...updatedData } : p))
-    );
+  const updateProduct = async (productId, updateData) => {
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/products/${productId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updateData),
+        }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        setProducts((prev) =>
+          prev.map((p) =>
+            p.id === productId ? { ...data.product, id: data.product._id } : p
+          )
+        );
+        return { success: true };
+      } else {
+        return { success: false, message: "❌ Không thể cập nhật" };
+      }
+    } catch (error) {
+      console.error("Lỗi khi cập nhật:", error);
+      return { success: false, message: "❌ Không thể kết nối server." };
+    }
   };
 
-  const deleteProduct = (productId) => {
-    setProducts((prev) => prev.filter((p) => p.id !== productId));
-  };
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
   return {
     products,
     loading,
-    error,
+    fetchProducts,
     addProduct,
     updateProduct,
     deleteProduct,
-    refetch: fetchProducts,
+    setProducts,
   };
 };

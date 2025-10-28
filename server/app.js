@@ -13,6 +13,8 @@ import userRoutes from "./routes/users.js";
 import productRoutes from "./routes/products.js";
 import reviewRoutes from "./routes/reviews.js";
 import adminSetupRoutes from "./routes/adminSetup.js";
+import adminProducts from "./routes/adminProducts.js";
+import sellerRoutes from "./routes/sellerRoutes.js";
 const app = express();
 
 // ✅ Kết nối MongoDB
@@ -35,7 +37,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/admin", adminSetupRoutes);
-
+app.use("/api/admin/products", adminProducts);
+app.use("/api/seller", sellerRoutes);
 // Kiểm tra server hoạt động
 app.get("/", (req, res) => {
   res.send("✅ Server đang hoạt động...");

@@ -8,9 +8,9 @@ const ProductForm = ({ product, onSubmit, isEditing, onCancel }) => {
     stock: "",
     category: "",
     description: "",
-    images: [],
-    videos: [],
   });
+  const [imageFiles, setImageFiles] = useState([]);
+  const [videoFiles, setVideoFiles] = useState([]);
   const [selectedImages, setSelectedImages] = useState([]);
   const [selectedVideos, setSelectedVideos] = useState([]);
 
@@ -22,55 +22,56 @@ const ProductForm = ({ product, onSubmit, isEditing, onCancel }) => {
         stock: product.stock.toString(),
         category: product.category,
         description: product.description,
-        images: product.images,
-        videos: product.videos,
       });
-      setSelectedImages(product.images);
-      setSelectedVideos(product.videos);
+      setSelectedImages(product.images || []);
+      setSelectedVideos(product.videos || []);
     }
   }, [product]);
 
   const handleImageSelect = (e) => {
     const files = Array.from(e.target.files);
+
+    // Lưu file thực tế
+    setImageFiles((prev) => [...prev, ...files]);
+
+    // Tạo URLs để preview
     const imageUrls = files.map((file) => URL.createObjectURL(file));
     setSelectedImages((prev) => [...prev, ...imageUrls]);
-    setFormData((prev) => ({
-      ...prev,
-      images: [...prev.images, ...imageUrls],
-    }));
   };
 
   const handleVideoSelect = (e) => {
     const files = Array.from(e.target.files);
+
+    // Lưu file thực tế
+    setVideoFiles((prev) => [...prev, ...files]);
+
+    // Tạo URLs để preview
     const videoUrls = files.map((file) => URL.createObjectURL(file));
     setSelectedVideos((prev) => [...prev, ...videoUrls]);
-    setFormData((prev) => ({
-      ...prev,
-      videos: [...prev.videos, ...videoUrls],
-    }));
   };
 
   const removeImage = (index) => {
+    // Xóa cả file và preview
+    const newImageFiles = [...imageFiles];
     const newImages = [...selectedImages];
+
+    newImageFiles.splice(index, 1);
     newImages.splice(index, 1);
+
+    setImageFiles(newImageFiles);
     setSelectedImages(newImages);
-    setFormData((prev) => ({ ...prev, images: newImages }));
   };
 
   const removeVideo = (index) => {
+    // Xóa cả file và preview
+    const newVideoFiles = [...videoFiles];
     const newVideos = [...selectedVideos];
-    newVideos.splice(index, 1);
-    setSelectedVideos(newVideos);
-    setFormData((prev) => ({ ...prev, videos: newVideos }));
-  };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit({
-      ...formData,
-      price: parseInt(formData.price),
-      stock: parseInt(formData.stock),
-    });
+    newVideoFiles.splice(index, 1);
+    newVideos.splice(index, 1);
+
+    setVideoFiles(newVideoFiles);
+    setSelectedVideos(newVideos);
   };
 
   const handleChange = (e) => {
@@ -80,9 +81,85 @@ const ProductForm = ({ product, onSubmit, isEditing, onCancel }) => {
     }));
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Tạo FormData để gửi file
+    const submitData = new FormData();
+
+    // Thêm các field text
+    submitData.append("name", formData.name);
+    submitData.append("price", formData.price);
+    submitData.append("stock", formData.stock);
+    submitData.append("category", formData.category);
+    submitData.append("description", formData.description);
+    submitData.append("status", "pending");
+
+    // Thêm files ảnh
+    imageFiles.forEach((file) => {
+      submitData.append("images", file);
+    });
+
+    // Thêm files video
+    videoFiles.forEach((file) => {
+      submitData.append("videos", file);
+    });
+
+    console.log("📤 Submitting form with:", {
+      name: formData.name,
+      price: formData.price,
+      stock: formData.stock,
+      category: formData.category,
+      imageCount: imageFiles.length,
+      videoCount: videoFiles.length,
+    });
+
+    try {
+      const response = await fetch("http://localhost:5000/api/products", {
+        method: "POST",
+        body: submitData, // Gửi FormData
+        // KHÔNG set Content-Type header, browser sẽ tự động set
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        console.log("✅ Product created successfully:", result);
+        // Giải phóng URLs tạm thời
+        selectedImages.forEach((url) => URL.revokeObjectURL(url));
+        selectedVideos.forEach((url) => URL.revokeObjectURL(url));
+
+        onSubmit(result.product);
+      } else {
+        console.error("❌ Server error:", result);
+        alert(result.message || "Có lỗi xảy ra khi thêm sản phẩm");
+      }
+    } catch (error) {
+      console.error("❌ Network error:", error);
+      alert("Không thể kết nối đến server");
+    }
+  };
+
+  // Hàm xử lý cập nhật sản phẩm (nếu là edit)
+  const handleUpdateSubmit = async (e) => {
+    e.preventDefault();
+
+    // Nếu là edit mode, gửi dữ liệu dạng JSON thông thường
+    const updateData = {
+      ...formData,
+      price: parseFloat(formData.price) || 0,
+      stock: parseInt(formData.stock) || 0,
+      images: selectedImages, // URLs hiện có
+      videos: selectedVideos, // URLs hiện có
+    };
+
+    console.log("📤 Updating product:", updateData);
+    onSubmit(updateData);
+  };
+
   return (
     <form
-      onSubmit={handleSubmit}
+      onSubmit={isEditing ? handleUpdateSubmit : handleSubmit}
       className="space-y-4 max-h-[80vh] overflow-y-auto"
     >
       <div>

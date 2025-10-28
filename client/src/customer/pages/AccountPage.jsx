@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../components/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,7 +11,6 @@ import {
   User,
   Settings,
   ShoppingBag,
-  Heart,
   MapPin,
   CreditCard,
   Bell,
@@ -18,13 +19,32 @@ import {
 } from "lucide-react";
 
 const AccountPage = () => {
-  const [user] = useState({
+  const { user, logout, isAuthenticated, login } = useAuth();
+  const navigate = useNavigate();
+
+  // Dữ liệu mẫu cho đăng nhập
+  const loginCredentials = {
+    email: "nguyenvana@email.com",
+    password: "password123",
+  };
+
+  // Dữ liệu mẫu cho user (nếu cần cho demo)
+  const sampleUser = {
+    id: 1,
     name: "Nguyễn Văn A",
     email: "nguyenvana@email.com",
     phone: "0912345678",
-    joinDate: "15/01/2023",
     avatar: "/api/placeholder/100/100",
-  });
+    addresses: [
+      {
+        id: 1,
+        name: "Nhà riêng",
+        phone: "0123456789",
+        address: "123 Đường ABC, Phường XYZ, Quận 1, TP. Hồ Chí Minh",
+        isDefault: true,
+      },
+    ],
+  };
 
   const orders = [
     {
@@ -67,10 +87,62 @@ const AccountPage = () => {
     );
   };
 
+  const handleLogin = async () => {
+    // Sử dụng hàm login từ useAuth với email và password
+    const result = await login(
+      loginCredentials.email,
+      loginCredentials.password
+    );
+    if (result.success) {
+      console.log("Đăng nhập thành công");
+    } else {
+      console.error("Đăng nhập thất bại:", result.error);
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
+  // Hiển thị trang đăng nhập nếu chưa đăng nhập
+  if (!isAuthenticated) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-md mx-auto text-center">
+          <Card>
+            <CardContent className="p-6">
+              <h2 className="text-2xl font-bold mb-4">Đăng nhập</h2>
+              <p className="text-gray-600 mb-6">
+                Vui lòng đăng nhập để truy cập trang tài khoản
+              </p>
+              <Button onClick={handleLogin} className="w-full">
+                Đăng nhập Demo
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Sử dụng user từ auth context hoặc sampleUser nếu user null
+  const currentUser = user || sampleUser;
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">Tài khoản của tôi</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">Tài khoản của tôi</h1>
+          <Button
+            variant="outline"
+            onClick={handleLogout}
+            className="text-red-600 border-red-200 hover:bg-red-50"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Đăng xuất
+          </Button>
+        </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
           <TabsList className="grid w-full grid-cols-5">
@@ -102,12 +174,12 @@ const AccountPage = () => {
               <Card>
                 <CardContent className="p-6 text-center">
                   <img
-                    src={user.avatar}
+                    src={currentUser.avatar}
                     alt="Avatar"
                     className="w-24 h-24 rounded-full mx-auto mb-4"
                   />
-                  <h3 className="text-xl font-semibold">{user.name}</h3>
-                  <p className="text-gray-600">{user.email}</p>
+                  <h3 className="text-xl font-semibold">{currentUser.name}</h3>
+                  <p className="text-gray-600">{currentUser.email}</p>
                   <Button variant="outline" className="w-full mt-4">
                     Đổi ảnh đại diện
                   </Button>
@@ -123,11 +195,11 @@ const AccountPage = () => {
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="name">Họ và tên</Label>
-                        <Input id="name" defaultValue={user.name} />
+                        <Input id="name" defaultValue={currentUser.name} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="phone">Số điện thoại</Label>
-                        <Input id="phone" defaultValue={user.phone} />
+                        <Input id="phone" defaultValue={currentUser.phone} />
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -135,7 +207,7 @@ const AccountPage = () => {
                       <Input
                         id="email"
                         type="email"
-                        defaultValue={user.email}
+                        defaultValue={currentUser.email}
                       />
                     </div>
                     <Button type="submit">Cập nhật thông tin</Button>
@@ -186,21 +258,21 @@ const AccountPage = () => {
                   <Button>Thêm địa chỉ mới</Button>
                 </div>
                 <div className="grid md:grid-cols-2 gap-4">
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <Badge>Mặc định</Badge>
-                        <Button variant="ghost" size="sm">
-                          Sửa
-                        </Button>
-                      </div>
-                      <p className="font-semibold">Nguyễn Văn A</p>
-                      <p className="text-sm text-gray-600">0912345678</p>
-                      <p className="text-sm mt-2">
-                        123 Đường ABC, Phường XYZ, Quận 1, TP. Hồ Chí Minh
-                      </p>
-                    </CardContent>
-                  </Card>
+                  {currentUser.addresses?.map((address) => (
+                    <Card key={address.id}>
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          {address.isDefault && <Badge>Mặc định</Badge>}
+                          <Button variant="ghost" size="sm">
+                            Sửa
+                          </Button>
+                        </div>
+                        <p className="font-semibold">{address.name}</p>
+                        <p className="text-sm text-gray-600">{address.phone}</p>
+                        <p className="text-sm mt-2">{address.address}</p>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -268,7 +340,8 @@ const AccountPage = () => {
                 <div className="pt-4 border-t">
                   <Button
                     variant="outline"
-                    className="text-red-600 border-red-200 hover:bg-red-50"
+                    onClick={handleLogout}
+                    className="text-red-600 border-red-200 hover:bg-red-50 w-full"
                   >
                     <LogOut className="h-4 w-4 mr-2" />
                     Đăng xuất
