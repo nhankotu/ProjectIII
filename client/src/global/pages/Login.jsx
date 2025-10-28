@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
+const API_BASE = import.meta.env.VITE_API_URL;
+
 const Login = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({ username: "", password: "" });
@@ -16,7 +18,7 @@ const Login = () => {
     e.preventDefault();
     try {
       const { username, password } = form;
-      const res = await fetch("http://localhost:5000/api/users/login", {
+      const res = await fetch(`${API_BASE}/api/users/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
