@@ -14,10 +14,12 @@ function App() {
       <BrowserRouter>
         <Routes>
           {/* 🔑 Trang dùng chung */}
-          <Route path="/*" element={<CustomerApp />} />
+
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
+          {/* 🏠 Trang chính */}
+          <Route path="/*" element={<CustomerApp />} />
           {/* 🧩 Các hệ thống con */}
           <Route path="/admin/*" element={<AdminApp />} />
           <Route path="/seller/*" element={<SellerApp />} />
