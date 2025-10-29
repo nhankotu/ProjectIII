@@ -22,11 +22,10 @@ function App() {
           <Route path="/admin/*" element={<AdminApp />} />
           <Route path="/seller/*" element={<SellerApp />} />
 
-          {/* ⚠️ Trang mặc định hoặc sai đường dẫn */}
-          <Route path="*" element={<NotFound />} />
-
           {/* 🏠 Trang chính */}
           <Route path="/*" element={<CustomerApp />} />
+          {/* ⚠️ Trang mặc định hoặc sai đường dẫn */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
 
