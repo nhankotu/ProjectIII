@@ -1,7 +1,5 @@
 import OTP from "../models/otp.js";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { transporter } from "../config/email.js";
 
 export const sendOTPService = async (email) => {
   try {
@@ -17,30 +15,15 @@ export const sendOTPService = async (email) => {
       expiresAt,
     });
 
-    // Gửi email qua Resend
-    const { data, error } = await resend.emails.send({
-      from: "onboarding@resend.dev",
+    // Gửi email
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
       to: email,
-      subject: "Mã OTP đăng ký tài khoản",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #2563eb;">Xác thực tài khoản</h2>
-          <p>Mã OTP để đăng ký tài khoản của bạn là:</p>
-          <div style="background: #f3f4f6; padding: 16px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 4px; margin: 20px 0;">
-            ${otpCode}
-          </div>
-          <p>Mã có hiệu lực trong <strong>5 phút</strong>.</p>
-          <p style="color: #6b7280; font-size: 14px;">Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email này.</p>
-        </div>
-      `,
+      subject: "Mã OTP đăng ký",
+      text: `Mã OTP của bạn là: ${otpCode}. Hết hạn trong 5 phút.`,
     });
 
-    if (error) {
-      console.error("❌ Resend error:", error);
-      return { success: false, message: "Lỗi gửi OTP" };
-    }
-
-    console.log("✅ Đã gửi OTP qua Resend");
+    console.log("✅ Đã gửi OTP qua email");
     return { success: true, message: "OTP đã được gửi đến email!" };
   } catch (error) {
     console.error("❌ Lỗi gửi OTP:", error);
@@ -66,6 +49,11 @@ export const verifyOTPService = async (email, otp) => {
 
     if (!record) {
       console.log("❌ Không tìm thấy OTP record cho email:", cleanEmail);
+
+      // Kiểm tra xem có OTP nào trong database không
+      const allOtps = await OTP.find({});
+      console.log("📋 Tất cả OTP trong database:", allOtps);
+
       return { success: false, message: "OTP không hợp lệ." };
     }
 
