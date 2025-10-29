@@ -24,7 +24,14 @@ function App() {
 
           {/* 🏠 Trang chính */}
           <Route path="/" element={<CustomerApp />} />
-
+          <Route path="/category/*" element={<CustomerApp />} />
+          <Route path="/product/*" element={<CustomerApp />} />
+          <Route path="/cart/*" element={<CustomerApp />} />
+          <Route path="/account/*" element={<CustomerApp />} />
+          <Route path="/wishlist/*" element={<CustomerApp />} />
+          <Route path="/support/*" element={<CustomerApp />} />
+          <Route path="/checkout/*" element={<CustomerApp />} />
+          <Route path="/search/*" element={<CustomerApp />} />
           {/* ⚠️ Trang mặc định hoặc sai đường dẫn */}
           <Route path="*" element={<NotFound />} />
         </Routes>
