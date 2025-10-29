@@ -1,5 +1,7 @@
 import { useState, useEffect, createContext, useContext } from "react";
 
+const API_BASE = import.meta.env.VITE_API_URL;
+
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
@@ -15,7 +17,7 @@ export const AuthProvider = ({ children }) => {
 
         // Ưu tiên kiểm tra server session trước
         try {
-          const response = await fetch("/api/auth/check", {
+          const response = await fetch(`${API_BASE}/api/auth/check`, {
             method: "GET",
             credentials: "include", // Quan trọng: gửi session cookie
           });
@@ -54,20 +56,26 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // Hàm login thật - gọi API server
-  const login = async (email, password) => {
+  const login = async (username, password) => {
+    // Đổi từ email sang username
     try {
       setLoading(true);
 
-      const response = await fetch("/api/auth/login", {
+      console.log("🔍 DEBUG - Login API URL:", `${API_BASE}/api/users/login`);
+
+      const response = await fetch(`${API_BASE}/api/users/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       });
+
+      console.log("🔍 DEBUG - Login response status:", response.status);
 
       if (response.ok) {
         const result = await response.json();
+        console.log("🔍 DEBUG - Login success:", result);
 
         // Lưu thông tin user
         localStorage.setItem("user", JSON.stringify(result.user));
@@ -76,9 +84,11 @@ export const AuthProvider = ({ children }) => {
         return { success: true, user: result.user };
       } else {
         const error = await response.json();
+        console.log("🔍 DEBUG - Login error:", error);
         return { success: false, error: error.message || "Đăng nhập thất bại" };
       }
     } catch (error) {
+      console.error("🔍 DEBUG - Login connection error:", error);
       return { success: false, error: "Lỗi kết nối" };
     } finally {
       setLoading(false);
@@ -88,7 +98,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       // Gọi API logout server
-      await fetch("/api/auth/logout", {
+      await fetch(`${API_BASE}/api/auth/logout`, {
         method: "POST",
         credentials: "include",
       });

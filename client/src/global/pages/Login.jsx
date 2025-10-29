@@ -38,7 +38,7 @@ const Login = () => {
             navigate("/seller");
             break;
           default:
-            navigate("/customer");
+            navigate("/");
         }
       } else {
         toast.error(data.message || "Sai tài khoản hoặc mật khẩu");

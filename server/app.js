@@ -23,8 +23,8 @@ connectDB();
 // Middleware
 app.use(
   cors({
-    origin: "http://localhost:5173", // domain của React
-    credentials: true, // nếu muốn gửi cookie
+    origin: ["http://localhost:5173", "https://project-iii-nine.vercel.app"],
+    credentials: true,
   })
 );
 app.use(morgan("dev"));

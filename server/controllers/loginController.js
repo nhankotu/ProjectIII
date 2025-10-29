@@ -56,11 +56,6 @@ export const registerUser = async (req, res) => {
 export const loginUser = async (req, res) => {
   try {
     const { username, password } = req.body;
-    if (!req.body) {
-      console.log("no data");
-    } else {
-      console.log(req.body);
-    }
 
     if (!username || !password) {
       return res
@@ -83,6 +78,13 @@ export const loginUser = async (req, res) => {
         email: user.email,
         role: user.role,
       },
+
+      redirectTo:
+        user.role === "admin"
+          ? "/admin"
+          : user.role === "seller"
+          ? "/seller"
+          : "/",
     });
   } catch (error) {
     res.status(500).json({ message: "Lỗi server", error: error.message });

@@ -106,6 +106,7 @@ const AccountPage = () => {
   };
 
   // Hiển thị trang đăng nhập nếu chưa đăng nhập
+  // Hiển thị trang đăng nhập nếu chưa đăng nhập
   if (!isAuthenticated) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -116,8 +117,10 @@ const AccountPage = () => {
               <p className="text-gray-600 mb-6">
                 Vui lòng đăng nhập để truy cập trang tài khoản
               </p>
-              <Button onClick={handleLogin} className="w-full">
-                Đăng nhập Demo
+
+              {/* 👇 CHỈ CẦN NÚT ĐĂNG NHẬP DUY NHẤT */}
+              <Button onClick={() => navigate("/login")} className="w-full">
+                Đăng nhập
               </Button>
             </CardContent>
           </Card>
