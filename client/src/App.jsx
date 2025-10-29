@@ -23,7 +23,7 @@ function App() {
           <Route path="/seller/*" element={<SellerApp />} />
 
           {/* 🏠 Trang chính */}
-          <Route path="/" element={<CustomerApp />} />
+          <Route path="/*" element={<CustomerApp />} />
           <Route path="/category/*" element={<CustomerApp />} />
           <Route path="/product/*" element={<CustomerApp />} />
           <Route path="/cart/*" element={<CustomerApp />} />
