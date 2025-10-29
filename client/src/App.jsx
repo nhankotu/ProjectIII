@@ -23,7 +23,8 @@ function App() {
           <Route path="/seller/*" element={<SellerApp />} />
 
           {/* 🏠 Trang chính */}
-          <Route path="/*" element={<CustomerApp />} />
+          <Route path="/" element={<CustomerApp />} />
+
           {/* ⚠️ Trang mặc định hoặc sai đường dẫn */}
           <Route path="*" element={<NotFound />} />
         </Routes>
