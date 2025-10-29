@@ -1,6 +1,5 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom"; // ✅ CHỈ import Routes, Route
-// ❌ XÓA: import { BrowserRouter as Router } from "react-router-dom";
 
 import { CartProvider } from "./contexts/CartContext";
 import { AuthProvider } from "./components/hooks/useAuth";
