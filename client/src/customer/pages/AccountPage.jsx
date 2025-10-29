@@ -106,7 +106,7 @@ const AccountPage = () => {
   };
 
   // Hiển thị trang đăng nhập nếu chưa đăng nhập
-  // Hiển thị trang đăng nhập nếu chưa đăng nhập
+
   if (!isAuthenticated) {
     return (
       <div className="container mx-auto px-4 py-8">

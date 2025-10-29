@@ -18,14 +18,15 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* 🏠 Trang chính */}
-          <Route path="/*" element={<CustomerApp />} />
           {/* 🧩 Các hệ thống con */}
           <Route path="/admin/*" element={<AdminApp />} />
           <Route path="/seller/*" element={<SellerApp />} />
 
           {/* ⚠️ Trang mặc định hoặc sai đường dẫn */}
           <Route path="*" element={<NotFound />} />
+
+          {/* 🏠 Trang chính */}
+          <Route path="/*" element={<CustomerApp />} />
         </Routes>
       </BrowserRouter>
 
