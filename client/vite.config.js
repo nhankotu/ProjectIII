@@ -10,8 +10,7 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
-
-  base: "./",
+  base: "/", // ✅ QUAN TRỌNG: phải là "/"
   build: {
     outDir: "dist",
   },
