@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+const API_BASE = import.meta.env.VITE_API_URL;
 
 function Register() {
   const navigate = useNavigate();
@@ -52,7 +53,7 @@ function Register() {
 
       console.log("🔄 Gửi request:", requestData);
 
-      const res = await fetch("http://localhost:5000/api/users/register", {
+      const res = await fetch(`${API_BASE}/api/users/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestData),
