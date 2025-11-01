@@ -27,6 +27,13 @@ const Login = () => {
       const data = await res.json();
 
       if (res.ok) {
+        if (data.token) {
+          localStorage.setItem("token", data.token);
+          console.log("✅ Token saved to localStorage");
+        } else {
+          console.log("❌ No token in response!");
+        }
+
         localStorage.setItem("user", JSON.stringify(data.user));
         toast.success("Đăng nhập thành công!");
 

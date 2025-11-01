@@ -9,44 +9,63 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Kiểm tra cả localStorage VÀ server session
     const checkAuth = async () => {
       try {
         const token = localStorage.getItem("token");
         const userData = localStorage.getItem("user");
 
-        // Ưu tiên kiểm tra server session trước
-        try {
-          const response = await fetch(`${API_BASE}/api/auth/check`, {
-            method: "GET",
-            credentials: "include", // Quan trọng: gửi session cookie
-          });
+        console.log("🔄 Checking auth...");
+        console.log("📝 Token from localStorage:", token ? "Exists" : "Null");
 
-          if (response.ok) {
-            const serverUser = await response.json();
-            console.log("User authenticated by server:", serverUser);
+        // Nếu có token → verify với server
+        if (token) {
+          try {
+            console.log("🔄 Verifying token with server...");
+            const response = await fetch(`${API_BASE}/api/users/check`, {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            });
 
-            // Đồng bộ với localStorage
-            localStorage.setItem("user", JSON.stringify(serverUser));
-            setUser(serverUser);
-            setLoading(false);
-            return;
+            console.log("📡 Server response status:", response.status);
+
+            if (response.ok) {
+              const serverData = await response.json();
+              console.log(
+                "✅ Server auth success - User:",
+                serverData.user.username
+              );
+
+              // Dùng user thật từ server
+              setUser(serverData.user);
+              localStorage.setItem("user", JSON.stringify(serverData.user));
+            } else {
+              // Token không valid → clear everything
+              console.log("❌ Token invalid, clearing auth data");
+              localStorage.removeItem("token");
+              localStorage.removeItem("user");
+              setUser(null);
+            }
+          } catch (serverError) {
+            console.error("🚨 Server auth error:", serverError);
+            // Lỗi kết nối → vẫn dùng localStorage nếu có
+            if (userData) {
+              console.log("🔄 Using localStorage due to connection error");
+              setUser(JSON.parse(userData));
+            }
           }
-        } catch (serverError) {
-          console.log("Server auth check failed, falling back to localStorage");
-        }
-
-        // Fallback: kiểm tra localStorage
-        if (token && userData) {
-          const parsedUser = JSON.parse(userData);
-          console.log("Using user from localStorage:", parsedUser);
-          setUser(parsedUser);
+        } else {
+          // Không có token → không đăng nhập
+          console.log("❌ No token found");
+          setUser(null);
         }
       } catch (error) {
-        console.error("Auth check failed:", error);
-        // Clear invalid data
+        console.error("🚨 Auth check failed:", error);
         localStorage.removeItem("token");
         localStorage.removeItem("user");
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -54,10 +73,8 @@ export const AuthProvider = ({ children }) => {
 
     checkAuth();
   }, []);
-
-  // Hàm login thật - gọi API server
+  // Hàm login - cập nhật để lưu token
   const login = async (username, password) => {
-    // Đổi từ email sang username
     try {
       setLoading(true);
 
@@ -77,7 +94,10 @@ export const AuthProvider = ({ children }) => {
         const result = await response.json();
         console.log("🔍 DEBUG - Login success:", result);
 
-        // Lưu thông tin user
+        // LƯU TOKEN VÀ USER
+        if (result.token) {
+          localStorage.setItem("token", result.token);
+        }
         localStorage.setItem("user", JSON.stringify(result.user));
         setUser(result.user);
 
@@ -97,11 +117,17 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      // Gọi API logout server
-      await fetch(`${API_BASE}/api/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
+      const token = localStorage.getItem("token");
+
+      // Gọi API logout nếu có token
+      if (token) {
+        await fetch(`${API_BASE}/api/auth/logout`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      }
     } catch (error) {
       console.error("Logout API error:", error);
     } finally {

@@ -1,5 +1,7 @@
 import User from "../models/User.js";
 import OTP from "../models/otp.js";
+import jwt from "jsonwebtoken";
+
 // Đăng ký
 export const registerUser = async (req, res) => {
   try {
@@ -69,9 +71,24 @@ export const loginUser = async (req, res) => {
         .status(400)
         .json({ message: "Sai tên đăng nhập hoặc mật khẩu." });
     }
+    // 3. TẠO TOKEN - QUAN TRỌNG
+    const JWT_SECRET = process.env.JWT_SECRET;
+
+    // TẠO TOKEN - QUAN TRỌNG
+    const token = jwt.sign(
+      {
+        id: user._id,
+        username: user.username,
+      },
+      JWT_SECRET, // ← Dùng biến JWT_SECRET
+      { expiresIn: "30d" }
+    );
+
+    console.log("✅ Token generated:", token);
 
     res.status(200).json({
       message: "Đăng nhập thành công!",
+      token: token,
       user: {
         _id: user._id,
         username: user.username,

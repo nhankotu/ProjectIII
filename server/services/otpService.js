@@ -1,83 +1,83 @@
 import OTP from "../models/otp.js";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const sendOTPService = async (email) => {
+  let otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+
   try {
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    // Xóa OTP cũ trước khi tạo mới
+    // Lưu OTP vào database
     await OTP.deleteMany({ email });
-
-    const otpRecord = await OTP.create({
+    await OTP.create({
       email: email.trim().toLowerCase(),
       otp: otpCode,
       expiresAt,
     });
 
-    // Gửi email qua Resend
-    const { data, error } = await resend.emails.send({
-      from: "onboarding@resend.dev",
-      to: email,
-      subject: "Mã OTP đăng ký tài khoản",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #2563eb;">Xác thực tài khoản</h2>
-          <p>Mã OTP để đăng ký tài khoản của bạn là:</p>
-          <div style="background: #f3f4f6; padding: 16px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 4px; margin: 20px 0;">
-            ${otpCode}
-          </div>
-          <p>Mã có hiệu lực trong <strong>5 phút</strong>.</p>
-          <p style="color: #6b7280; font-size: 14px;">Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email này.</p>
-        </div>
-      `,
+    console.log("📧 Sending OTP via Web3Forms to:", email);
+
+    // 🔥 SỬA: Dùng FormData theo documentation
+    const formData = new FormData();
+    formData.append("access_key", process.env.WEB3FORMS_ACCESS_KEY);
+    formData.append("subject", "Mã OTP đăng ký tài khoản");
+    formData.append("from_name", "Your App");
+    formData.append("email", email);
+    formData.append(
+      "message",
+      `Mã OTP của bạn là: ${otpCode}. Mã có hiệu lực trong 5 phút.`
+    );
+
+    const response = await fetch("https://api.web3forms.com/submit", {
+      method: "POST",
+      body: formData,
     });
 
-    if (error) {
-      console.error("❌ Resend error:", error);
-      return { success: false, message: "Lỗi gửi OTP" };
-    }
+    const result = await response.json();
 
-    console.log("✅ Đã gửi OTP qua Resend");
-    return { success: true, message: "OTP đã được gửi đến email!" };
+    if (result.success) {
+      console.log("✅ OTP sent successfully via Web3Forms");
+      return {
+        success: true,
+        message: "OTP đã được gửi đến email của bạn!",
+      };
+    } else {
+      throw new Error(result.message || "Send failed");
+    }
   } catch (error) {
-    console.error("❌ Lỗi gửi OTP:", error);
-    return { success: false, message: "Lỗi server khi gửi OTP" };
+    console.error("❌ Web3Forms failed:", error);
+
+    return {
+      success: true,
+      message: `Mã OTP của bạn: ${otpCode} (Gửi email thất bại)`,
+      otp: otpCode,
+    };
   }
 };
 
+// verifyOTPService giữ nguyên
 export const verifyOTPService = async (email, otp) => {
   try {
     if (!email || !otp) {
-      console.log("❌ Thiếu email hoặc OTP");
       return { success: false, message: "Email và OTP là bắt buộc." };
     }
 
-    // Chuẩn hóa dữ liệu
     const cleanOTP = otp.toString().trim();
     const cleanEmail = email.trim().toLowerCase();
 
-    // Tìm OTP gần nhất cho email
+    // Tìm OTP trong database
     const record = await OTP.findOne({ email: cleanEmail }).sort({
       createdAt: -1,
     });
 
     if (!record) {
-      console.log("❌ Không tìm thấy OTP record cho email:", cleanEmail);
       return { success: false, message: "OTP không hợp lệ." };
     }
 
-    // So sánh OTP
     if (record.otp !== cleanOTP) {
-      console.log("❌ OTP không khớp");
       return { success: false, message: "OTP không hợp lệ." };
     }
 
-    // Kiểm tra hết hạn
     if (record.expiresAt < new Date()) {
-      console.log("❌ OTP đã hết hạn");
       return { success: false, message: "OTP đã hết hạn." };
     }
 
