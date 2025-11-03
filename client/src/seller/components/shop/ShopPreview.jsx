@@ -42,8 +42,8 @@ const ShopPreview = ({ shopData }) => {
         {/* Shop Info */}
         <div className="p-4">
           <div className="flex items-start space-x-4">
-            {/* Logo */}
-            <div className="w-16 h-16 rounded-lg border-2 border-white shadow-md -mt-8 bg-white">
+            {/* Logo - ĐÃ SỬA KHOẢNG CÁCH VÀ HIỆU ỨNG */}
+            <div className="w-20 h-20 rounded-xl border-4 border-white shadow-lg -mt-12 bg-white relative z-10">
               {basicInfo.shopLogo ? (
                 <img
                   src={basicInfo.shopLogo}
@@ -51,12 +51,13 @@ const ShopPreview = ({ shopData }) => {
                   className="w-full h-full object-cover rounded-lg"
                 />
               ) : (
-                <div className="w-full h-full bg-gray-300 rounded-lg flex items-center justify-center">
-                  <span className="text-gray-600 text-xs">LOGO</span>
+                <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
+                  <span className="text-gray-500 text-sm font-medium">
+                    LOGO
+                  </span>
                 </div>
               )}
             </div>
-
             {/* Shop Details */}
             <div className="flex-1">
               <h2 className="text-xl font-bold text-gray-900">

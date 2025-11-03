@@ -18,7 +18,19 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
     role: { type: String, default: "customer" },
+    name: { type: String }, // Tên hiển thị
+    phone: { type: String }, // Số điện thoại
+    avatar: { type: String }, // URL avatar
+    addresses: [
+      {
+        name: String, // Tên địa chỉ (Nhà riêng, Công ty...)
+        phone: String, // Số điện thoại nhận hàng
+        address: String, // Địa chỉ chi tiết
+        isDefault: { type: Boolean, default: false },
+      },
+    ],
   },
+
   { timestamps: true }
 );
 

@@ -73,6 +73,7 @@ export const AuthProvider = ({ children }) => {
 
     checkAuth();
   }, []);
+
   // Hàm login - cập nhật để lưu token
   const login = async (username, password) => {
     try {
@@ -138,11 +139,43 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // 🔥 THÊM HÀM updateUser NÀY - QUAN TRỌNG
+  const updateUser = (updatedUser) => {
+    console.log("🔄 Updating user in Auth Context:", updatedUser);
+    setUser(updatedUser);
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+  };
+
+  // 🔥 THÊM HÀM refreshUser để lấy data mới từ server
+  const refreshUser = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE}/api/users/profile`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        updateUser(userData);
+        console.log("✅ User data refreshed from server");
+      }
+    } catch (error) {
+      console.error("❌ Error refreshing user:", error);
+    }
+  };
+
   const value = {
     user,
     loading,
     login,
     logout,
+    updateUser, // 🔥 THÊM VÀO ĐÂY
+    refreshUser, // 🔥 THÊM VÀO ĐÂY
     isAuthenticated: !!user,
   };
 

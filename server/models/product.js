@@ -25,7 +25,7 @@ const productSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["active", "inactive", "pending", "out_of_stock", "low_stock"], // Cập nhật enum values
-      default: "pending",
+      default: "active",
     },
     images: [
       {

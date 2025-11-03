@@ -71,21 +71,21 @@ export const loginUser = async (req, res) => {
         .status(400)
         .json({ message: "Sai tên đăng nhập hoặc mật khẩu." });
     }
-    // 3. TẠO TOKEN - QUAN TRỌNG
-    const JWT_SECRET = process.env.JWT_SECRET;
 
-    // TẠO TOKEN - QUAN TRỌNG
+    // TẠO TOKEN
+    const JWT_SECRET = process.env.JWT_SECRET;
     const token = jwt.sign(
       {
         id: user._id,
         username: user.username,
       },
-      JWT_SECRET, // ← Dùng biến JWT_SECRET
+      JWT_SECRET,
       { expiresIn: "30d" }
     );
 
     console.log("✅ Token generated:", token);
 
+    // TRẢ VỀ ĐẦY ĐỦ THÔNG TIN USER THEO MODEL
     res.status(200).json({
       message: "Đăng nhập thành công!",
       token: token,
@@ -94,8 +94,14 @@ export const loginUser = async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
+        // THÊM CÁC TRƯỜNG MỚI TỪ MODEL
+        name: user.name, // Tên hiển thị
+        phone: user.phone, // Số điện thoại
+        avatar: user.avatar, // URL avatar
+        addresses: user.addresses, // Danh sách địa chỉ
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       },
-
       redirectTo:
         user.role === "admin"
           ? "/admin"

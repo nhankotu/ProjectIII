@@ -1,4 +1,4 @@
-import Product from "../models/product.js";
+import Product from "../../models/product.js";
 
 // ✅ Lấy danh sách sản phẩm của seller
 export const getSellerProducts = async (req, res) => {

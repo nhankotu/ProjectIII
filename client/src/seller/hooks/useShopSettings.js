@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 
+const API_BASE = import.meta.env.VITE_API_URL;
+
 export const useShopSettings = () => {
   const [shopData, setShopData] = useState({});
   const [loading, setLoading] = useState(true);
@@ -11,63 +13,39 @@ export const useShopSettings = () => {
 
   const fetchShopData = async () => {
     try {
-      // Mock data - shop settings
-      const mockShopData = {
-        // Basic Info
-        basicInfo: {
-          shopName: "Thời Trang Sara",
-          shopLogo: "https://via.placeholder.com/150x150?text=Logo",
-          shopBanner: "https://via.placeholder.com/1200x300?text=Banner",
-          description:
-            "Chuyên cung cấp áo thun unisex chất lượng cao, giá tốt. Cam kết 100% cotton, form chuẩn, đa dạng màu sắc.",
-          category: "Thời trang",
-          establishedYear: 2023,
-        },
+      setLoading(true);
+      const token = localStorage.getItem("token");
 
-        // Policies
-        policies: {
-          returnPolicy:
-            "Chấp nhận đổi trả trong vòng 7 ngày kể từ khi nhận hàng. Sản phẩm phải còn nguyên tem mác, chưa qua sử dụng.",
-          warrantyPolicy:
-            "Bảo hành 6 tháng cho các lỗi từ nhà sản xuất. Không bảo hành với các trường hợp hư hỏng do người dùng.",
-          processingTime: "1-2 ngày làm việc",
-          supportTime: "8:00 - 22:00 hàng ngày",
-        },
+      if (!token) {
+        console.error("No token found");
+        setLoading(false);
+        return;
+      }
 
-        // Shipping
-        shipping: {
-          nationwide: true,
-          freeShippingThreshold: 300000,
-          fixedShippingFee: 25000,
-          shippingPartners: ["ghtk", "ghn", "viettel"],
-          supportedRegions: ["Hà Nội", "TP.HCM", "Đà Nẵng", "Toàn quốc"],
-        },
+      console.log("🔄 Fetching shop settings from API...");
 
-        // Contact
-        contact: {
-          phone: "0123.456.789",
-          email: "support@thoitrangsara.com",
-          address: "123 Nguyễn Trãi, Thanh Xuân, Hà Nội",
-          socialMedia: {
-            facebook: "thoitrangsara",
-            instagram: "thoitrangsara",
-            tiktok: "thoitrangsara",
-          },
+      const response = await fetch(`${API_BASE}/api/seller/settings`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
+      });
 
-        // SEO
-        seo: {
-          metaTitle: "Thời Trang Sara - Áo thun unisex chất lượng cao",
-          metaDescription:
-            "Chuyên áo thun nam nữ chất cotton 100%, form chuẩn, giá tốt. Đổi trả 7 ngày, free ship đơn > 300k.",
-          keywords: "áo thun, áo phông unisex, thời trang nam nữ, cotton",
-          customDomain: "thoitrangsara.shop",
-        },
-      };
+      console.log("📡 API Response status:", response.status);
 
-      setShopData(mockShopData);
+      if (response.ok) {
+        const result = await response.json();
+        console.log("✅ Shop data received:", result.data);
+        setShopData(result.data || {});
+      } else {
+        console.error("❌ Failed to fetch shop settings");
+        // Fallback: set empty data
+        setShopData({});
+      }
     } catch (error) {
-      console.error("Error fetching shop data:", error);
+      console.error("❌ Error fetching shop data:", error);
+      setShopData({});
     } finally {
       setLoading(false);
     }
@@ -76,17 +54,53 @@ export const useShopSettings = () => {
   const updateShopData = async (section, data) => {
     setSaving(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const token = localStorage.getItem("token");
 
-      setShopData((prev) => ({
-        ...prev,
-        [section]: { ...prev[section], ...data },
-      }));
+      if (!token) {
+        return { success: false, message: "Vui lòng đăng nhập lại" };
+      }
 
-      return { success: true, message: "Cập nhật thành công!" };
+      console.log(`🔄 Updating ${section}:`, data);
+
+      const updatePayload = {
+        [section]: data,
+      };
+
+      const response = await fetch(`${API_BASE}/api/seller/settings`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updatePayload),
+      });
+
+      const result = await response.json();
+      console.log("📡 Update response:", result);
+
+      if (result.success) {
+        // Cập nhật state local với data mới
+        setShopData((prev) => ({
+          ...prev,
+          [section]: { ...prev[section], ...data },
+        }));
+
+        return {
+          success: true,
+          message: result.message || "Cập nhật thành công!",
+        };
+      } else {
+        return {
+          success: false,
+          message: result.message || "Lỗi khi cập nhật!",
+        };
+      }
     } catch (error) {
-      return { success: false, message: "Lỗi khi cập nhật!" };
+      console.error("❌ Error updating shop data:", error);
+      return {
+        success: false,
+        message: "Lỗi kết nối server!",
+      };
     } finally {
       setSaving(false);
     }
@@ -95,12 +109,44 @@ export const useShopSettings = () => {
   const saveAllSettings = async (allData) => {
     setSaving(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      setShopData(allData);
-      return { success: true, message: "Lưu tất cả cài đặt thành công!" };
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        return { success: false, message: "Vui lòng đăng nhập lại" };
+      }
+
+      console.log("💾 Saving all settings:", allData);
+
+      const response = await fetch(`${API_BASE}/api/seller/settings`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(allData),
+      });
+
+      const result = await response.json();
+      console.log("📡 Save all response:", result);
+
+      if (result.success) {
+        setShopData(allData);
+        return {
+          success: true,
+          message: result.message || "Lưu tất cả cài đặt thành công!",
+        };
+      } else {
+        return {
+          success: false,
+          message: result.message || "Lỗi khi lưu cài đặt!",
+        };
+      }
     } catch (error) {
-      return { success: false, message: "Lỗi khi lưu cài đặt!" };
+      console.error("❌ Error saving all settings:", error);
+      return {
+        success: false,
+        message: "Lỗi kết nối server!",
+      };
     } finally {
       setSaving(false);
     }

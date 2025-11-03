@@ -20,12 +20,52 @@ import SecurityTab from "../components/account/SecurityTab";
 import SettingsTab from "../components/account/SettingsTab";
 import LoginPrompt from "../components/account/LoginPrompt";
 
+const API_BASE = import.meta.env.VITE_API_URL;
+
 const AccountPage = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("profile");
   const [loading, setLoading] = useState(false);
+  const [addresses, setAddresses] = useState([]); // THÊM STATE CHO ADDRESSES
+  const [addressesLoading, setAddressesLoading] = useState(true);
+
+  // Hàm fetch addresses từ API
+  const fetchAddresses = async () => {
+    console.log("🔄 fetchAddresses called");
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_BASE}/api/users/address`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log("📡 Fetch addresses response status:", response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("✅ Fetched addresses:", data);
+        setAddresses(data);
+      } else {
+        console.log("❌ Failed to fetch addresses");
+        setAddresses([]); // Fallback về mảng rỗng
+      }
+    } catch (error) {
+      console.error("Error fetching addresses:", error);
+      setAddresses([]); // Fallback về mảng rỗng
+    } finally {
+      setAddressesLoading(false);
+    }
+  };
+
+  // Fetch addresses khi component mount hoặc khi tab address được active
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchAddresses();
+    }
+  }, [isAuthenticated]);
 
   // Dữ liệu mẫu tạm thời
   const sampleUser = {
@@ -34,15 +74,6 @@ const AccountPage = () => {
     email: "nguyenvana@email.com",
     phone: "0912345678",
     avatar: "/api/placeholder/100/100",
-    addresses: [
-      {
-        id: 1,
-        name: "Nhà riêng",
-        phone: "0123456789",
-        address: "123 Đường ABC, Phường XYZ, Quận 1, TP. Hồ Chí Minh",
-        isDefault: true,
-      },
-    ],
   };
 
   const orders = [
@@ -137,7 +168,21 @@ const AccountPage = () => {
           </TabsContent>
 
           <TabsContent value="address">
-            <AddressTab addresses={currentUser.addresses} />
+            {addressesLoading ? (
+              <Card>
+                <CardContent className="p-6">
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                    <p className="text-gray-500 mt-2">Đang tải địa chỉ...</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <AddressTab
+                addresses={addresses}
+                onAddressUpdate={fetchAddresses} // QUAN TRỌNG: TRUYỀN CALLBACK
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="security">
