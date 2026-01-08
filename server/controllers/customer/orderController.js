@@ -1,6 +1,6 @@
 import Order from "../../models/Order.js";
 import Cart from "../../models/Cart.js";
-import Product from "../../models/A.js";
+import Product from "../../models/Product.js";
 
 // 📦 TẠO ĐƠN HÀNG
 export const createOrder = async (req, res) => {

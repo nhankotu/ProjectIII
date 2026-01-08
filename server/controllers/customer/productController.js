@@ -1,4 +1,4 @@
-import Product from "../../models/A.js";
+import Product from "../../models/Product.js";
 
 // 🛠️ HÀM HELPER: Xử lý ảnh thông minh (Dùng chung cho các hàm bên dưới)
 // Giúp Frontend luôn nhận được 1 đường link ảnh string, không bị lỗi object rỗng

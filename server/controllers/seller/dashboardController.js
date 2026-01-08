@@ -1,5 +1,5 @@
 import Order from "../../models/Order.js";
-import Product from "../../models/A.js";
+import Product from "../../models/Product.js";
 import mongoose from "mongoose";
 
 const getProductImage = (product) => {

@@ -1,5 +1,5 @@
 import Category from "../../models/Category.js";
-import Product from "../../models/A.js";
+import Product from "../../models/Product.js";
 
 // 📋 Lấy danh sách danh mục (Kèm số lượng sản phẩm)
 export const getCategories = async (req, res) => {
