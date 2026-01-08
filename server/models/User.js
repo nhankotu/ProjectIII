@@ -17,7 +17,13 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    role: { type: String, default: "customer" },
+    role: {
+      type: String,
+      enum: ["customer", "seller", "admin"], // Chỉ cho phép 3 quyền này
+      default: "customer",
+    },
+    // Thêm trường này để check nhanh xem user này có bị khóa không
+    isActive: { type: Boolean, default: true },
     name: { type: String }, // Tên hiển thị
     phone: { type: String }, // Số điện thoại
     avatar: { type: String }, // URL avatar

@@ -1,96 +1,140 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
 import ProductCard from "../components/common/ProductCard";
-import LoadingSpinner from "../components/common/LoadingSpinner";
-import EmptyState from "../components/common/EmptyState";
-import { useProducts } from "../components/hooks/useProducts";
-import { useCategories } from "../components/hooks/useMockData";
-import { useCart } from "../components/hooks/useCart";
-import { Filter, Grid, List, ChevronDown, X } from "lucide-react";
+import { useCart } from "../../contexts/CartContext";
+import { productService } from "../services/productService";
+
+// Helper format giá
+const formatPrice = (price) => {
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+  }).format(price);
+};
 
 const ProductListingPage = () => {
-  const { slug } = useParams();
+  const { category: categorySlug } = useParams();
   const [searchParams] = useSearchParams();
   const searchQuery = searchParams.get("q");
 
-  const { products, loading, error } = useProducts({
-    category: slug,
-    search: searchQuery,
-  });
-
-  const categories = useCategories();
   const { addToCart } = useCart();
 
-  const [viewMode, setViewMode] = useState("grid");
+  // State dữ liệu
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // State bộ lọc giao diện
   const [sortBy, setSortBy] = useState("newest");
   const [priceRange, setPriceRange] = useState([0, 50000000]);
   const [selectedBrands, setSelectedBrands] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Get current category
-  const currentCategory = categories.find((cat) => cat.slug === slug);
+  // 1. LẤY DANH MỤC
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await productService.getCategories();
+        let data = [];
+        if (response && Array.isArray(response.data)) data = response.data;
+        else if (Array.isArray(response)) data = response;
+        else if (response?.categories) data = response.categories;
+        setCategories(data);
+      } catch (error) {
+        console.error("Lỗi lấy danh mục:", error);
+      }
+    };
+    fetchCategories();
+  }, []);
 
-  // Filter products based on selections
-  const filteredProducts = React.useMemo(() => {
-    let filtered = [...products];
+  // 2. LẤY SẢN PHẨM
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        let response;
 
-    // Price filter
-    filtered = filtered.filter(
-      (product) =>
-        product.price >= priceRange[0] && product.price <= priceRange[1]
+        if (searchQuery) {
+          response = await productService.searchProducts(searchQuery);
+        } else if (categorySlug) {
+          response = await productService.getProductsByCategory(categorySlug);
+        } else {
+          response = await productService.getProducts();
+        }
+
+        let data = [];
+        if (response && Array.isArray(response.data)) data = response.data;
+        else if (Array.isArray(response)) data = response;
+        else if (response?.products) data = response.products;
+
+        setProducts(data);
+      } catch (error) {
+        console.error("Lỗi lấy sản phẩm:", error);
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [categorySlug, searchQuery]);
+
+  // --- SỬA LỖI QUAN TRỌNG: Tách tên thương hiệu từ Object ---
+  const brands = useMemo(() => {
+    const brandSet = new Set();
+    products.forEach((p) => {
+      if (p.brand) {
+        // Nếu brand là object (VD: {name: 'Nike'}), lấy .name. Nếu là string, lấy trực tiếp.
+        const brandName = typeof p.brand === "object" ? p.brand.name : p.brand;
+        if (brandName) brandSet.add(brandName);
+      }
+    });
+    return Array.from(brandSet);
+  }, [products]);
+
+  // 3. LOGIC LỌC
+  const filteredProducts = useMemo(() => {
+    let result = [...products];
+
+    // Lọc theo giá
+    result = result.filter(
+      (p) => (p.price || 0) >= priceRange[0] && (p.price || 0) <= priceRange[1]
     );
 
-    // Brand filter
+    // Lọc theo thương hiệu (So sánh String vs String)
     if (selectedBrands.length > 0) {
-      filtered = filtered.filter((product) =>
-        selectedBrands.includes(product.brand)
-      );
+      result = result.filter((p) => {
+        const pBrandName = typeof p.brand === "object" ? p.brand.name : p.brand;
+        return selectedBrands.includes(pBrandName);
+      });
     }
 
-    // Sort products
-    filtered.sort((a, b) => {
+    // Sắp xếp
+    result.sort((a, b) => {
       switch (sortBy) {
         case "price_asc":
-          return a.price - b.price;
+          return (a.price || 0) - (b.price || 0);
         case "price_desc":
-          return b.price - a.price;
+          return (b.price || 0) - (a.price || 0);
         case "name_asc":
-          return a.name.localeCompare(b.name);
+          return (a.name || "").localeCompare(b.name || "");
         case "name_desc":
-          return b.name.localeCompare(a.name);
+          return (b.name || "").localeCompare(a.name || "");
         case "rating_desc":
-          return b.rating - a.rating;
-        case "best_seller":
-          return b.soldCount - a.soldCount;
-        case "newest":
+          return (b.rating || 0) - (a.rating || 0);
         default:
-          return b.id - a.id;
+          return 0;
       }
     });
 
-    return filtered;
+    return result;
   }, [products, priceRange, selectedBrands, sortBy]);
 
-  // Get unique brands from products
-  const brands = React.useMemo(() => {
-    const brandSet = new Set(products.map((product) => product.brand));
-    return Array.from(brandSet).filter(Boolean);
-  }, [products]);
-
-  const handleBrandToggle = (brand) => {
+  const handleBrandToggle = (brandName) => {
     setSelectedBrands((prev) =>
-      prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]
+      prev.includes(brandName)
+        ? prev.filter((b) => b !== brandName)
+        : [...prev, brandName]
     );
   };
 
@@ -100,216 +144,182 @@ const ProductListingPage = () => {
     setSortBy("newest");
   };
 
-  if (loading) {
-    return <LoadingSpinner size="xl" text="Đang tải sản phẩm..." />;
-  }
+  const currentCategory = categories.find((cat) => cat.slug === categorySlug);
 
-  if (error) {
+  if (loading) {
     return (
-      <EmptyState
-        type="products"
-        title="Lỗi tải dữ liệu"
-        description={error}
-        actionText="Thử lại"
-        onAction={() => window.location.reload()}
-      />
+      <div className="py-12 container mx-auto px-4 text-center">
+        <div className="animate-pulse">Đang tải sản phẩm...</div>
+      </div>
     );
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Page Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">
-              {searchQuery
-                ? `Kết quả tìm kiếm: "${searchQuery}"`
-                : currentCategory?.name || "Tất cả sản phẩm"}
-            </h1>
-            <p className="text-gray-600 mt-2">
-              {filteredProducts.length} sản phẩm
-              {searchQuery && ` cho "${searchQuery}"`}
-            </p>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            {/* View Mode Toggle */}
-            <div className="flex border rounded-lg">
-              <Button
-                variant={viewMode === "grid" ? "default" : "ghost"}
-                size="icon"
-                onClick={() => setViewMode("grid")}
-                className="h-10 w-10"
-              >
-                <Grid className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === "list" ? "default" : "ghost"}
-                size="icon"
-                onClick={() => setViewMode("list")}
-                className="h-10 w-10"
-              >
-                <List className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {/* Sort Select */}
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Sắp xếp" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="newest">Mới nhất</SelectItem>
-                <SelectItem value="price_asc">Giá thấp đến cao</SelectItem>
-                <SelectItem value="price_desc">Giá cao đến thấp</SelectItem>
-                <SelectItem value="name_asc">Tên A-Z</SelectItem>
-                <SelectItem value="name_desc">Tên Z-A</SelectItem>
-                <SelectItem value="rating_desc">Đánh giá cao</SelectItem>
-                <SelectItem value="best_seller">Bán chạy</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Mobile Filter Button */}
-            <Button
-              variant="outline"
-              className="md:hidden"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Lọc
-            </Button>
-          </div>
+      {/* Header */}
+      <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+            {searchQuery
+              ? `Kết quả tìm kiếm: "${searchQuery}"`
+              : currentCategory?.name || "Tất cả sản phẩm"}
+          </h1>
+          <p className="text-gray-600 mt-2">
+            Tìm thấy {filteredProducts.length} sản phẩm
+          </p>
         </div>
 
-        {/* Breadcrumb */}
-        <nav className="text-sm text-gray-500">
-          <Link to="/" className="hover:text-blue-600">
-            Trang chủ
-          </Link>
-          {currentCategory && (
-            <>
-              <span className="mx-2">/</span>
-              <Link
-                to={`/category/${currentCategory.slug}`}
-                className="hover:text-blue-600"
-              >
-                {currentCategory.name}
-              </Link>
-            </>
-          )}
-          {searchQuery && (
-            <>
-              <span className="mx-2">/</span>
-              <span>Tìm kiếm</span>
-            </>
-          )}
-        </nav>
+        {/* Controls */}
+        <div className="flex items-center gap-4">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="border rounded-lg px-3 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="newest">Mới nhất</option>
+            <option value="price_asc">Giá thấp đến cao</option>
+            <option value="price_desc">Giá cao đến thấp</option>
+            <option value="name_asc">Tên A-Z</option>
+          </select>
+
+          <button
+            className="md:hidden border rounded-lg p-2"
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            ⚙️ Lọc
+          </button>
+        </div>
       </div>
 
-      <div className="flex gap-8">
-        {/* Filters Sidebar */}
-        <div
+      <div className="flex flex-col md:flex-row gap-8">
+        {/* Sidebar Filter */}
+        <aside
           className={`${
             showFilters ? "block" : "hidden"
-          } md:block w-64 flex-shrink-0`}
+          } md:block w-full md:w-64 flex-shrink-0 space-y-6`}
         >
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold">Bộ lọc</h3>
-                <Button variant="ghost" size="sm" onClick={clearFilters}>
-                  <X className="h-4 w-4 mr-1" />
-                  Xóa
-                </Button>
-              </div>
+          <div className="bg-white p-4 rounded-lg border shadow-sm">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold">Bộ lọc</h3>
+              <button
+                onClick={clearFilters}
+                className="text-xs text-red-500 hover:underline"
+              >
+                Xóa lọc
+              </button>
+            </div>
 
-              {/* Price Filter */}
-              <div className="mb-6">
-                <h4 className="font-medium mb-3">Khoảng giá</h4>
-                <Slider
-                  value={priceRange}
-                  onValueChange={setPriceRange}
-                  max={50000000}
-                  step={100000}
-                  className="mb-4"
+            {/* Price Filter */}
+            <div className="mb-6">
+              <h4 className="font-medium mb-2 text-sm text-gray-700">
+                Khoảng giá
+              </h4>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="number"
+                  placeholder="0"
+                  className="w-full border rounded px-2 py-1 text-sm"
+                  onChange={(e) =>
+                    setPriceRange([Number(e.target.value), priceRange[1]])
+                  }
                 />
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>{formatPrice(priceRange[0])}</span>
-                  <span>{formatPrice(priceRange[1])}</span>
-                </div>
+                <span>-</span>
+                <input
+                  type="number"
+                  placeholder="MAX"
+                  className="w-full border rounded px-2 py-1 text-sm"
+                  onChange={(e) =>
+                    setPriceRange([priceRange[0], Number(e.target.value)])
+                  }
+                />
               </div>
+            </div>
 
-              {/* Brand Filter */}
-              {brands.length > 0 && (
-                <div className="mb-6">
-                  <h4 className="font-medium mb-3">Thương hiệu</h4>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {brands.map((brand) => (
-                      <label
-                        key={brand}
-                        className="flex items-center space-x-2"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedBrands.includes(brand)}
-                          onChange={() => handleBrandToggle(brand)}
-                          className="rounded border-gray-300"
-                        />
-                        <span className="text-sm">{brand}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Category Filter */}
-              <div className="mb-6">
-                <h4 className="font-medium mb-3">Danh mục</h4>
-                <div className="space-y-2">
-                  {categories.slice(0, 6).map((category) => (
+            {/* Categories */}
+            <div className="mb-6">
+              <h4 className="font-medium mb-2 text-sm text-gray-700">
+                Danh mục
+              </h4>
+              <ul className="space-y-2">
+                <li>
+                  <Link
+                    to="/products"
+                    className={`text-sm ${
+                      categorySlug ? "text-gray-600" : "text-blue-600 font-bold"
+                    }`}
+                  >
+                    Tất cả
+                  </Link>
+                </li>
+                {categories.map((cat) => (
+                  <li key={cat._id || cat.id}>
                     <Link
-                      key={category.id}
-                      to={`/category/${category.slug}`}
-                      className={`block text-sm p-2 rounded hover:bg-gray-50 ${
-                        slug === category.slug
-                          ? "bg-blue-50 text-blue-600"
+                      to={`/products/${cat.slug}`}
+                      className={`text-sm hover:text-blue-600 ${
+                        categorySlug === cat.slug
+                          ? "text-blue-600 font-bold"
                           : "text-gray-600"
                       }`}
                     >
-                      {category.name}
+                      {cat.name}
                     </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Brands (SỬA LỖI CHÍNH TẠI ĐÂY) */}
+            {brands.length > 0 && (
+              <div>
+                <h4 className="font-medium mb-2 text-sm text-gray-700">
+                  Thương hiệu
+                </h4>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {brands.map((brandName) => (
+                    <label
+                      key={brandName} // Key bây giờ chắc chắn là String
+                      className="flex items-center space-x-2 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedBrands.includes(brandName)}
+                        onChange={() => handleBrandToggle(brandName)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-600">{brandName}</span>
+                    </label>
                   ))}
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            )}
+          </div>
+        </aside>
 
-        {/* Products Grid */}
+        {/* Product Grid */}
         <div className="flex-1">
           {filteredProducts.length === 0 ? (
-            <EmptyState
-              type="search"
-              title="Không tìm thấy sản phẩm"
-              description="Hãy thử điều chỉnh bộ lọc hoặc tìm kiếm với từ khóa khác"
-              actionText="Xem tất cả sản phẩm"
-              onAction={clearFilters}
-            />
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+              <div className="text-4xl mb-2">🔍</div>
+              <h3 className="text-lg font-medium text-gray-900">
+                Không tìm thấy sản phẩm
+              </h3>
+              <p className="text-gray-500">
+                Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.
+              </p>
+              <button
+                onClick={clearFilters}
+                className="mt-4 text-blue-600 hover:underline"
+              >
+                Xóa bộ lọc
+              </button>
+            </div>
           ) : (
-            <div
-              className={
-                viewMode === "grid"
-                  ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
-                  : "space-y-4"
-              }
-            >
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {filteredProducts.map((product) => (
                 <ProductCard
-                  key={product.id}
+                  key={product._id || product.id}
                   product={product}
                   onAddToCart={addToCart}
-                  variant={viewMode}
                 />
               ))}
             </div>
@@ -318,14 +328,6 @@ const ProductListingPage = () => {
       </div>
     </div>
   );
-};
-
-// Format price helper
-const formatPrice = (price) => {
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-  }).format(price);
 };
 
 export default ProductListingPage;

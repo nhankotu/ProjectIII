@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  # 1. Backend (Đặt tên đúng như trong lỗi Nginx của bạn)
+  projectiii-backend:
+    build: ./server # Đường dẫn tới thư mục backend
+    container_name: projectiii-backend # Tên bắt buộc để Nginx tìm thấy
+    ports:
+      - "5000:5000" # Mở port backend nếu cần test API riêng
+    networks:
+      - app-network
+
+  # 2. Frontend (Chứa Nginx)
+  frontend:
+    build: ./client # Đường dẫn tới thư mục frontend
+    ports:
+      - "8080:80" # Web chạy ở localhost:8080
+    depends_on:
+      - projectiii-backend # Chờ backend chạy trước
+    networks:
+      - app-network
+
+# 3. Tạo mạng chung để 2 thằng nhìn thấy nhau
+networks:
+  app-network:
+    driver: bridge

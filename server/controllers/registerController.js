@@ -43,10 +43,30 @@ export const registerUser = async (req, res) => {
     }
 
     // OTP hợp lệ → tạo user
-    const user = new User({ username, email, password, role });
+    const isActiveStatus = role === "seller" ? false : true;
+    const user = new User({
+      username,
+      email,
+      password: hashedPassword,
+      role: role || "customer",
+      isActive: isActiveStatus,
+    });
     await user.save();
 
-    res.status(201).json({ message: "Đăng ký thành công!", user });
+    if (role === "seller") {
+      return res.status(201).json({
+        success: true,
+        message:
+          "Đăng ký thành công! Tài khoản Seller đang chờ Admin phê duyệt.",
+        requiresApproval: true, // Cờ để frontend biết hiển thị thông báo
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Đăng ký thành công!",
+      requiresApproval: false,
+    });
   } catch (error) {
     console.error("❌ Lỗi đăng ký:", error);
     res.status(500).json({ message: "Lỗi server!" });

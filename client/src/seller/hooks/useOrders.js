@@ -1,168 +1,161 @@
 import { useState, useEffect } from "react";
 
+const API_BASE = import.meta.env.VITE_API_URL;
+
 export const useOrders = () => {
+  // ⚠️ Bỏ tham số sellerId vì ta sẽ lấy từ Token
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
+  // ✅ Helper lấy token an toàn
+  const getToken = () => {
+    return localStorage.getItem("token");
+  };
 
+  // ✅ Fetch orders từ API Seller (Đã sửa)
   const fetchOrders = async () => {
-    try {
-      // Mock data
-      const mockOrders = [
-        {
-          id: "ORD-001",
-          customer: {
-            name: "Nguyễn Văn A",
-            phone: "0123456789",
-            email: "a@email.com",
-          },
-          items: [
-            {
-              product: "Áo thun nam",
-              price: 150000,
-              quantity: 2,
-              total: 300000,
-            },
-            {
-              product: "Quần jeans",
-              price: 350000,
-              quantity: 1,
-              total: 350000,
-            },
-          ],
-          total: 650000,
-          status: "pending",
-          paymentMethod: "cod",
-          shippingAddress: "123 Đường ABC, Quận 1, TP.HCM",
-          createdAt: "2024-10-01 10:30:00",
-          updatedAt: "2024-10-01 10:30:00",
-        },
-        {
-          id: "ORD-002",
-          customer: {
-            name: "Trần Thị B",
-            phone: "0987654321",
-            email: "b@email.com",
-          },
-          items: [
-            {
-              product: "Giày thể thao",
-              price: 420000,
-              quantity: 1,
-              total: 420000,
-            },
-          ],
-          total: 420000,
-          status: "confirmed",
-          paymentMethod: "momo",
-          shippingAddress: "456 Đường XYZ, Quận 2, TP.HCM",
-          createdAt: "2024-10-01 09:15:00",
-          updatedAt: "2024-10-01 11:20:00",
-        },
-        {
-          id: "ORD-003",
-          customer: {
-            name: "Lê Văn C",
-            phone: "0369852147",
-            email: "c@email.com",
-          },
-          items: [
-            {
-              product: "Túi xách da",
-              price: 280000,
-              quantity: 1,
-              total: 280000,
-            },
-            { product: "Ví nam", price: 120000, quantity: 1, total: 120000 },
-          ],
-          total: 400000,
-          status: "shipping",
-          paymentMethod: "banking",
-          shippingAddress: "789 Đường DEF, Quận 3, TP.HCM",
-          createdAt: "2024-09-30 14:20:00",
-          updatedAt: "2024-10-01 08:45:00",
-        },
-        {
-          id: "ORD-004",
-          customer: {
-            name: "Phạm Thị D",
-            phone: "0912345678",
-            email: "d@email.com",
-          },
-          items: [
-            {
-              product: "Áo khoác nữ",
-              price: 520000,
-              quantity: 1,
-              total: 520000,
-            },
-          ],
-          total: 520000,
-          status: "completed",
-          paymentMethod: "cod",
-          shippingAddress: "321 Đường GHI, Quận 4, TP.HCM",
-          createdAt: "2024-09-29 16:45:00",
-          updatedAt: "2024-09-30 10:30:00",
-        },
-        {
-          id: "ORD-005",
-          customer: {
-            name: "Hoàng Văn E",
-            phone: "0945678912",
-            email: "e@email.com",
-          },
-          items: [
-            {
-              product: "Quần short",
-              price: 180000,
-              quantity: 3,
-              total: 540000,
-            },
-          ],
-          total: 540000,
-          status: "cancelled",
-          paymentMethod: "momo",
-          shippingAddress: "654 Đường JKL, Quận 5, TP.HCM",
-          createdAt: "2024-09-28 11:20:00",
-          updatedAt: "2024-09-28 15:10:00",
-        },
-      ];
+    const token = getToken();
 
-      setOrders(mockOrders);
-    } catch (error) {
-      console.error("Error fetching orders:", error);
+    // Nếu không có token (chưa đăng nhập), dừng lại
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 🛠️ SỬA ĐỔI QUAN TRỌNG TẠI ĐÂY:
+      // 1. URL: Trỏ về /api/seller/orders
+      // 2. Headers: Gửi kèm Token
+      const res = await fetch(`${API_BASE}/api/seller/orders`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`, // Gửi token để Backend biết Seller là ai
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      if (data.success) {
+        setOrders(data.data || []);
+      } else {
+        throw new Error(data.message || "Failed to fetch orders");
+      }
+    } catch (err) {
+      console.error("❌ Error fetching orders:", err);
+      setError(err.message);
+      setOrders([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const updateOrderStatus = (orderId, newStatus) => {
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === orderId
-          ? {
-              ...order,
-              status: newStatus,
-              updatedAt: new Date().toLocaleString("vi-VN"),
-            }
-          : order
-      )
-    );
+  // Gọi fetch khi component mount
+  useEffect(() => {
+    fetchOrders();
+  }, []); // Không cần phụ thuộc sellerId nữa
+
+  // ✅ Cập nhật trạng thái đơn hàng (Cũng cần thêm Token)
+  const updateOrderStatus = async (orderId, newStatus) => {
+    const token = getToken();
+    if (!token) return { success: false, error: "No token found" };
+
+    try {
+      // Optimistic update
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === orderId
+            ? {
+                ...order,
+                status: newStatus,
+                updatedAt: new Date().toISOString(),
+              }
+            : order
+        )
+      );
+
+      // Gọi API Update (Thường route này cũng cần bảo vệ bằng Token)
+      // Lưu ý: Kiểm tra lại route backend cập nhật đơn hàng của bạn là gì.
+      // Thường là PUT /api/seller/orders/:id hoặc PUT /api/orders/:id
+      // Ở đây tôi giả định bạn dùng route chung /api/orders/:id nhưng thêm Token
+      const res = await fetch(`${API_BASE}/api/orders/${orderId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`, // 🔥 Thêm Token vào đây luôn
+        },
+        body: JSON.stringify({
+          status: newStatus,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      if (!data.success) {
+        throw new Error(data.message || "Failed to update order");
+      }
+
+      // Cập nhật lại data chuẩn từ server
+      setOrders((prev) =>
+        prev.map((order) => (order.id === orderId ? data.data : order))
+      );
+
+      return { success: true, data: data.data };
+    } catch (err) {
+      console.error("❌ Error updating order status:", err);
+
+      // Revert nếu lỗi
+      setOrders((prev) => fetchOrders()); // Fetch lại cho chắc ăn
+      setError(err.message);
+      return { success: false, error: err.message };
+    }
   };
 
+  // ✅ Lọc orders theo status
   const getOrdersByStatus = (status) => {
     if (status === "all") return orders;
     return orders.filter((order) => order.status === status);
   };
 
+  // ✅ Tính toán số lượng orders
+  const getOrderCounts = () => {
+    const counts = {
+      all: orders.length,
+      pending: 0,
+      confirmed: 0,
+      shipping: 0,
+      delivered: 0,
+      cancelled: 0,
+    };
+
+    orders.forEach((order) => {
+      if (counts[order.status] !== undefined) {
+        counts[order.status]++;
+      }
+    });
+
+    return counts;
+  };
+
   return {
     orders,
     loading,
+    error,
     updateOrderStatus,
     getOrdersByStatus,
+    getOrderCounts,
     refetch: fetchOrders,
   };
 };

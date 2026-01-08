@@ -1,11 +1,44 @@
-import React, { useState } from "react";
+import React, {
+  useState,
+  useEffect,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 
-const ContactSection = ({ data, onSave, saving }) => {
-  const [formData, setFormData] = useState(data);
+const ContactSection = forwardRef(({ data, onSave, saving }, ref) => {
+  const [formData, setFormData] = useState(data || {});
 
-  const handleSubmit = (e) => {
+  // Đồng bộ khi data từ parent thay đổi
+  useEffect(() => {
+    setFormData(data || {});
+  }, [data]);
+
+  // Expose submit cho parent
+  useImperativeHandle(ref, () => ({
+    submit: async () => {
+      await onSave("contact", formData);
+      return formData;
+    },
+  }));
+
+  // Nút lưu riêng
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSave("contact", formData);
+    await ref.current?.submit();
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSocialChange = (platform, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      socialMedia: {
+        ...prev.socialMedia,
+        [platform]: value,
+      },
+    }));
   };
 
   return (
@@ -22,12 +55,11 @@ const ContactSection = ({ data, onSave, saving }) => {
             <input
               type="tel"
               required
-              value={formData.phone}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, phone: e.target.value }))
-              }
+              value={formData.phone || ""}
+              onChange={(e) => handleInputChange("phone", e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-md"
               placeholder="0123.456.789"
+              disabled={saving}
             />
           </div>
 
@@ -38,12 +70,11 @@ const ContactSection = ({ data, onSave, saving }) => {
             <input
               type="email"
               required
-              value={formData.email}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, email: e.target.value }))
-              }
+              value={formData.email || ""}
+              onChange={(e) => handleInputChange("email", e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-md"
               placeholder="support@cuahang.com"
+              disabled={saving}
             />
           </div>
         </div>
@@ -55,12 +86,11 @@ const ContactSection = ({ data, onSave, saving }) => {
           </label>
           <input
             type="text"
-            value={formData.address}
-            onChange={(e) =>
-              setFormData((prev) => ({ ...prev, address: e.target.value }))
-            }
+            value={formData.address || ""}
+            onChange={(e) => handleInputChange("address", e.target.value)}
             className="w-full p-2 border border-gray-300 rounded-md"
             placeholder="Nhập địa chỉ cửa hàng"
+            disabled={saving}
           />
         </div>
 
@@ -70,64 +100,21 @@ const ContactSection = ({ data, onSave, saving }) => {
             Mạng xã hội
           </label>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">
-                Facebook
-              </label>
-              <input
-                type="text"
-                value={formData.socialMedia?.facebook || ""}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    socialMedia: {
-                      ...prev.socialMedia,
-                      facebook: e.target.value,
-                    },
-                  }))
-                }
-                className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                placeholder="username"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">
-                Instagram
-              </label>
-              <input
-                type="text"
-                value={formData.socialMedia?.instagram || ""}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    socialMedia: {
-                      ...prev.socialMedia,
-                      instagram: e.target.value,
-                    },
-                  }))
-                }
-                className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                placeholder="username"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">TikTok</label>
-              <input
-                type="text"
-                value={formData.socialMedia?.tiktok || ""}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    socialMedia: {
-                      ...prev.socialMedia,
-                      tiktok: e.target.value,
-                    },
-                  }))
-                }
-                className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                placeholder="username"
-              />
-            </div>
+            {["facebook", "instagram", "tiktok"].map((platform) => (
+              <div key={platform}>
+                <label className="block text-xs text-gray-500 mb-1">
+                  {platform.charAt(0).toUpperCase() + platform.slice(1)}
+                </label>
+                <input
+                  type="text"
+                  value={formData.socialMedia?.[platform] || ""}
+                  onChange={(e) => handleSocialChange(platform, e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  placeholder="username"
+                  disabled={saving}
+                />
+              </div>
+            ))}
           </div>
         </div>
 
@@ -143,6 +130,6 @@ const ContactSection = ({ data, onSave, saving }) => {
       </form>
     </div>
   );
-};
+});
 
 export default ContactSection;

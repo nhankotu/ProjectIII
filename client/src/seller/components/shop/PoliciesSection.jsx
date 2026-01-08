@@ -1,11 +1,34 @@
-import React, { useState } from "react";
+import React, {
+  useState,
+  useEffect,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 
-const PoliciesSection = ({ data, onSave, saving }) => {
-  const [formData, setFormData] = useState(data);
+const PoliciesSection = forwardRef(({ data, onSave, saving }, ref) => {
+  const [formData, setFormData] = useState(data || {});
 
-  const handleSubmit = (e) => {
+  // Đồng bộ khi data từ parent thay đổi
+  useEffect(() => {
+    setFormData(data || {});
+  }, [data]);
+
+  // Expose submit cho parent
+  useImperativeHandle(ref, () => ({
+    submit: async () => {
+      await onSave("policies", formData);
+      return formData;
+    },
+  }));
+
+  // Nút lưu riêng
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSave("policies", formData);
+    await ref.current?.submit();
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -19,13 +42,12 @@ const PoliciesSection = ({ data, onSave, saving }) => {
             Chính sách đổi trả
           </label>
           <textarea
-            value={formData.returnPolicy}
-            onChange={(e) =>
-              setFormData((prev) => ({ ...prev, returnPolicy: e.target.value }))
-            }
+            value={formData.returnPolicy || ""}
+            onChange={(e) => handleInputChange("returnPolicy", e.target.value)}
             rows="3"
             className="w-full p-2 border border-gray-300 rounded-md"
             placeholder="Mô tả chính sách đổi trả của cửa hàng..."
+            disabled={saving}
           />
         </div>
 
@@ -35,16 +57,14 @@ const PoliciesSection = ({ data, onSave, saving }) => {
             Chính sách bảo hành
           </label>
           <textarea
-            value={formData.warrantyPolicy}
+            value={formData.warrantyPolicy || ""}
             onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                warrantyPolicy: e.target.value,
-              }))
+              handleInputChange("warrantyPolicy", e.target.value)
             }
             rows="3"
             className="w-full p-2 border border-gray-300 rounded-md"
             placeholder="Mô tả chính sách bảo hành..."
+            disabled={saving}
           />
         </div>
 
@@ -56,15 +76,13 @@ const PoliciesSection = ({ data, onSave, saving }) => {
             </label>
             <input
               type="text"
-              value={formData.processingTime}
+              value={formData.processingTime || ""}
               onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  processingTime: e.target.value,
-                }))
+                handleInputChange("processingTime", e.target.value)
               }
               className="w-full p-2 border border-gray-300 rounded-md"
               placeholder="VD: 1-2 ngày làm việc"
+              disabled={saving}
             />
           </div>
 
@@ -74,15 +92,11 @@ const PoliciesSection = ({ data, onSave, saving }) => {
             </label>
             <input
               type="text"
-              value={formData.supportTime}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  supportTime: e.target.value,
-                }))
-              }
+              value={formData.supportTime || ""}
+              onChange={(e) => handleInputChange("supportTime", e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-md"
               placeholder="VD: 8:00 - 22:00 hàng ngày"
+              disabled={saving}
             />
           </div>
         </div>
@@ -99,6 +113,6 @@ const PoliciesSection = ({ data, onSave, saving }) => {
       </form>
     </div>
   );
-};
+});
 
 export default PoliciesSection;

@@ -113,10 +113,26 @@ export const updateShopSettings = async (req, res) => {
 
 // POST /api/shop/settings/upload - Upload logo/banner lên Cloudinary
 export const uploadShopImage = async (req, res) => {
+  // 🔥 KHAI BÁO type Ở NGOÀI TRY-CATCH
+  let type;
+
   try {
     const sellerId = req.user.id;
-    const { type } = req.body; // 'logo' hoặc 'banner'
+    type = req.body.type; // 'logo' hoặc 'banner' - 👈 DÙNG = thay vì {}
     const file = req.file;
+
+    console.log("📦 Upload request data:", {
+      sellerId,
+      type,
+      hasFile: !!file,
+      fileInfo: file
+        ? {
+            originalname: file.originalname,
+            mimetype: file.mimetype,
+            size: file.size,
+          }
+        : "No file",
+    });
 
     if (!file) {
       return res.status(400).json({
@@ -134,18 +150,36 @@ export const uploadShopImage = async (req, res) => {
 
     console.log(`🔄 Uploading ${type} to Cloudinary for seller:`, sellerId);
 
-    // Upload lên Cloudinary
-    const result = await cloudinary.uploader.upload(file.path, {
-      folder: `shop-images/${sellerId}`,
-      transformation:
-        type === "logo"
-          ? [{ width: 200, height: 200, crop: "fill", quality: "auto" }]
-          : [{ width: 1200, height: 400, crop: "fill", quality: "auto" }],
+    // 🔥 UPLOAD TỪ BUFFER (Memory Storage)
+    const result = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: `shop-images/${sellerId}`,
+          transformation:
+            type === "logo"
+              ? [{ width: 200, height: 200, crop: "fill", quality: "auto" }]
+              : [{ width: 1200, height: 400, crop: "fill", quality: "auto" }],
+        },
+        (error, result) => {
+          if (error) {
+            console.error(`❌ Cloudinary upload error for ${type}:`, error);
+            reject(error);
+          } else {
+            console.log(
+              `✅ Cloudinary upload success for ${type}:`,
+              result.public_id
+            );
+            resolve(result);
+          }
+        }
+      );
+
+      // GHI BUFFER TRỰC TIẾP LÊN CLOUDINARY
+      uploadStream.end(file.buffer);
     });
 
     // Cập nhật URL vào MongoDB
     const updateField = `basicInfo.${type}`;
-
     const settings = await ShopSettings.findOneAndUpdate(
       { sellerId },
       { $set: { [updateField]: result.secure_url } },
@@ -164,6 +198,7 @@ export const uploadShopImage = async (req, res) => {
       },
     });
   } catch (error) {
+    // 🔥 BÂY GIỜ type ĐÃ ĐƯỢC ĐỊNH NGHĨA
     console.error(`❌ Lỗi upload ${type}:`, error);
     res.status(500).json({
       success: false,

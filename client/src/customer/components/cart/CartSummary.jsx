@@ -1,145 +1,172 @@
-// components/cart/CartSummary.jsx
-import React from "react";
-import { Link } from "react-router-dom";
-import { useCart } from "../../contexts/CartContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Shield, Heart, Truck, ShoppingBag, ArrowRight } from "lucide-react";
-import { formatPrice } from "@/lib/formatters";
+import React, { useState } from "react";
+import { useCart } from "../../../contexts/CartContext";
 
 const CartSummary = () => {
-  const { items, total, itemsCount } = useCart();
+  const { cartTotal, cartCount } = useCart();
+  const [couponCode, setCouponCode] = useState("");
+  const [couponApplied, setCouponApplied] = useState(false);
+  const [couponDiscount, setCouponDiscount] = useState(0);
 
-  const shippingFee = total > 300000 ? 0 : 25000;
-  const finalTotal = total + shippingFee;
-  const freeShippingThreshold = 300000;
-  const remainingForFreeShipping = freeShippingThreshold - total;
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(price);
+  };
 
-  if (items.length === 0) {
-    return (
-      <Card>
-        <CardContent className="p-6 text-center">
-          <ShoppingBag className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Giỏ hàng trống</h3>
-          <p className="text-gray-500 mb-4">
-            Hãy thêm sản phẩm vào giỏ hàng để bắt đầu mua sắm
-          </p>
-          <Button asChild className="w-full">
-            <Link to="/">Tiếp tục mua sắm</Link>
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
+  const calculateShipping = () => {
+    if (cartTotal >= 500000) {
+      return 0;
+    }
+    return 30000; // 30,000 VND shipping fee
+  };
+
+  const calculateTax = () => {
+    return cartTotal * 0.1; // 10% VAT
+  };
+
+  const handleApplyCoupon = () => {
+    if (!couponCode.trim()) return;
+
+    // Mock coupon validation
+    const validCoupons = {
+      SAVE10: 0.1, // 10% discount
+      SAVE20: 0.2, // 20% discount
+      FREESHIP: 30000, // Free shipping
+    };
+
+    const discount = validCoupons[couponCode.toUpperCase()];
+
+    if (discount) {
+      const discountAmount =
+        typeof discount === "number" ? discount : cartTotal * discount;
+
+      setCouponApplied(true);
+      setCouponDiscount(discountAmount);
+      alert(`Coupon applied! You saved ${formatPrice(discountAmount)}`);
+    } else {
+      alert("Invalid coupon code");
+    }
+  };
+
+  const shipping = calculateShipping();
+  const tax = calculateTax();
+  const subtotal = cartTotal;
+  const discount = couponApplied ? couponDiscount : 0;
+  const total = subtotal + shipping + tax - discount;
 
   return (
-    <Card className="sticky top-4">
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <ShoppingBag className="h-5 w-5" />
-          <span>Tóm tắt đơn hàng</span>
-        </CardTitle>
-      </CardHeader>
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h3 className="text-lg font-bold text-gray-900 mb-6">Order Summary</h3>
 
-      <CardContent className="space-y-6">
-        {/* Order Summary */}
-        <div className="space-y-3">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">
-              Tạm tính ({itemsCount} sản phẩm)
-            </span>
-            <span className="font-semibold">{formatPrice(total)}</span>
+      <div className="space-y-4">
+        {/* Subtotal */}
+        <div className="flex justify-between">
+          <span className="text-gray-600">Subtotal ({cartCount} items)</span>
+          <span className="font-medium">{formatPrice(subtotal)}</span>
+        </div>
+
+        {/* Shipping */}
+        <div className="flex justify-between">
+          <span className="text-gray-600">Shipping</span>
+          <span
+            className={`font-medium ${shipping === 0 ? "text-green-600" : ""}`}
+          >
+            {shipping === 0 ? "FREE" : formatPrice(shipping)}
+          </span>
+        </div>
+
+        {/* Tax */}
+        <div className="flex justify-between">
+          <span className="text-gray-600">Tax (VAT 10%)</span>
+          <span className="font-medium">{formatPrice(tax)}</span>
+        </div>
+
+        {/* Coupon Discount */}
+        {couponApplied && (
+          <div className="flex justify-between text-green-600">
+            <span>Discount</span>
+            <span className="font-medium">-{formatPrice(discount)}</span>
           </div>
+        )}
 
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Phí vận chuyển</span>
-            <span
-              className={
-                shippingFee === 0
-                  ? "text-green-600 font-semibold"
-                  : "font-semibold"
-              }
+        {/* Divider */}
+        <div className="border-t border-gray-200 my-4"></div>
+
+        {/* Total */}
+        <div className="flex justify-between text-lg font-bold">
+          <span>Total</span>
+          <span className="text-blue-600">{formatPrice(total)}</span>
+        </div>
+
+        {/* Coupon Input */}
+        <div className="pt-4 border-t border-gray-200">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Apply Coupon
+          </label>
+          <div className="flex">
+            <input
+              type="text"
+              value={couponCode}
+              onChange={(e) => setCouponCode(e.target.value)}
+              placeholder="Enter coupon code"
+              className="flex-grow px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={couponApplied}
+            />
+            <button
+              onClick={handleApplyCoupon}
+              disabled={couponApplied || !couponCode.trim()}
+              className={`px-4 py-2 rounded-r-md font-medium ${
+                couponApplied
+                  ? "bg-green-100 text-green-800 cursor-not-allowed"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
             >
-              {shippingFee === 0 ? "Miễn phí" : formatPrice(shippingFee)}
-            </span>
+              {couponApplied ? "Applied" : "Apply"}
+            </button>
           </div>
-
-          {/* Free Shipping Progress */}
-          {shippingFee > 0 && remainingForFreeShipping > 0 && (
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>
-                  Mua thêm {formatPrice(remainingForFreeShipping)} để được miễn
-                  phí ship
-                </span>
-                <span>
-                  {Math.round((total / freeShippingThreshold) * 100)}%
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style={{
-                    width: `${Math.min(
-                      (total / freeShippingThreshold) * 100,
-                      100
-                    )}%`,
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          {shippingFee === 0 && (
-            <Badge
-              variant="secondary"
-              className="w-full justify-center bg-green-50 text-green-700"
+          {couponApplied && (
+            <button
+              onClick={() => {
+                setCouponApplied(false);
+                setCouponDiscount(0);
+                setCouponCode("");
+              }}
+              className="mt-2 text-sm text-red-600 hover:text-red-700"
             >
-              <Truck className="h-3 w-3 mr-1" />
-              🎉 Bạn được miễn phí vận chuyển
-            </Badge>
+              Remove coupon
+            </button>
           )}
+        </div>
+      </div>
 
-          <div className="border-t pt-3">
-            <div className="flex justify-between text-lg font-semibold">
-              <span>Tổng cộng</span>
-              <span className="text-blue-600">{formatPrice(finalTotal)}</span>
+      {/* Savings Info */}
+      {cartTotal < 500000 && (
+        <div className="mt-6 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+          <p className="text-sm text-blue-800">
+            <span className="font-medium">
+              Spend {formatPrice(500000 - cartTotal)} more
+            </span>{" "}
+            to get free shipping!
+          </p>
+        </div>
+      )}
+
+      {/* Payment Methods */}
+      <div className="mt-6">
+        <p className="text-sm text-gray-600 mb-3">Accepted Payment Methods</p>
+        <div className="flex space-x-2">
+          {["visa", "mastercard", "paypal", "cod"].map((method) => (
+            <div
+              key={method}
+              className="w-10 h-6 bg-gray-100 rounded flex items-center justify-center"
+            >
+              <span className="text-xs font-medium">{method}</span>
             </div>
-          </div>
+          ))}
         </div>
-
-        {/* Action Buttons */}
-        <div className="space-y-3">
-          <Button asChild className="w-full" size="lg">
-            <Link to="/checkout" className="flex items-center justify-center">
-              Tiến hành thanh toán
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Link>
-          </Button>
-
-          <Button asChild variant="outline" className="w-full">
-            <Link to="/">Tiếp tục mua sắm</Link>
-          </Button>
-        </div>
-
-        {/* Security & Benefits */}
-        <div className="space-y-3 pt-4 border-t">
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <Shield className="h-4 w-4 text-green-500" />
-            <span>Bảo mật & An toàn</span>
-          </div>
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <Truck className="h-4 w-4 text-blue-500" />
-            <span>Giao hàng nhanh chóng</span>
-          </div>
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <Heart className="h-4 w-4 text-red-500" />
-            <span>Đảm bảo chất lượng</span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 

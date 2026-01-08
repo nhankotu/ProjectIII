@@ -1,177 +1,141 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import apiClient from "../../services/apiClient";
+
+const inventoryApi = {
+  // Lấy danh sách sản phẩm của Seller hiện tại
+  getAll: () => apiClient.get("/api/seller/products"),
+
+  // Cập nhật tồn kho
+  updateStock: (id, stock) =>
+    apiClient.put(`/api/seller/products/${id}`, { stock }),
+};
 
 export const useInventory = () => {
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [suppliers, setSuppliers] = useState([]);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchInventoryData();
-  }, []);
+  // 1. Helper: Xác định trạng thái tồn kho
+  const getStockStatus = (stock) => {
+    if (stock === 0) return "out_of_stock";
+    if (stock <= 10) return "low_stock";
+    return "active";
+  };
 
-  const fetchInventoryData = async () => {
+  // 2. Fetch inventory
+  // Sử dụng useCallback để tránh tạo lại hàm này mỗi lần render
+  const fetchInventory = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
     try {
-      // Mock data - sản phẩm thời trang/tiêu dùng
-      const mockInventory = [
-        {
-          id: 1,
-          sku: "ATNAM-XL-DEN-001",
-          name: "Áo thun nam XL màu đen",
-          category: "Thời trang",
-          currentStock: 45,
-          safetyStock: 10,
-          costPrice: 80000,
-          salePrice: 150000,
-          status: "in_stock",
-          supplier: "Công ty Dệt may ABC",
-          lastRestocked: "2024-10-01",
-          daysInStock: 15,
-          totalValue: 3600000,
-        },
-        {
-          id: 2,
-          sku: "QJNUS-M-001",
-          name: "Quần jeans nữ size M",
-          category: "Thời trang",
-          currentStock: 8,
-          safetyStock: 15,
-          costPrice: 180000,
-          salePrice: 350000,
-          status: "low_stock",
-          supplier: "Xưởng may XYZ",
-          lastRestocked: "2024-09-28",
-          daysInStock: 18,
-          totalValue: 1440000,
-        },
-        {
-          id: 3,
-          sku: "GTSNK-38-001",
-          name: "Giày thể thao nữ size 38",
-          category: "Giày dép",
-          currentStock: 0,
-          safetyStock: 5,
-          costPrice: 150000,
-          salePrice: 280000,
-          status: "out_of_stock",
-          supplier: "Công ty Giày da DEF",
-          lastRestocked: "2024-09-20",
-          daysInStock: 25,
-          totalValue: 0,
-        },
-        {
-          id: 4,
-          sku: "TUXDA-001",
-          name: "Túi xách da bò",
-          category: "Phụ kiện",
-          currentStock: 25,
-          safetyStock: 8,
-          costPrice: 120000,
-          salePrice: 250000,
-          status: "in_stock",
-          supplier: "Xưởng da GHI",
-          lastRestocked: "2024-10-05",
-          daysInStock: 5,
-          totalValue: 3000000,
-        },
-        {
-          id: 5,
-          sku: "VINAM-001",
-          name: "Ví nam da thật",
-          category: "Phụ kiện",
-          currentStock: 3,
-          safetyStock: 10,
-          costPrice: 90000,
-          salePrice: 180000,
-          status: "low_stock",
-          supplier: "Xưởng da GHI",
-          lastRestocked: "2024-09-25",
-          daysInStock: 20,
-          totalValue: 270000,
-        },
-      ];
+      // Gọi API qua Service (Token đã được apiClient tự động xử lý)
+      const response = await inventoryApi.getAll();
+      const data = response.data;
 
-      const mockSuppliers = [
-        {
-          id: 1,
-          name: "Công ty Dệt may ABC",
-          contact: "0123456789",
-          rating: 4.5,
-        },
-        { id: 2, name: "Xưởng may XYZ", contact: "0987654321", rating: 4.2 },
-        {
-          id: 3,
-          name: "Công ty Giày da DEF",
-          contact: "0369852147",
-          rating: 4.7,
-        },
-        { id: 4, name: "Xưởng da GHI", contact: "0912345678", rating: 4.3 },
-      ];
+      if (data.success) {
+        // Map dữ liệu từ Backend sang format chuẩn của Frontend
+        const rawProducts = data.products || data.data || [];
 
-      setInventory(mockInventory);
-      setSuppliers(mockSuppliers);
-    } catch (error) {
-      console.error("Error fetching inventory:", error);
+        const inventoryData = rawProducts.map((product) => ({
+          id: product._id || product.id,
+          sku:
+            product.sku ||
+            `SP-${(product._id || "").substring(0, 8).toUpperCase()}`,
+          name: product.name,
+          // Xử lý trường hợp category là object hoặc string
+          category:
+            product.category?.name || product.category || "Chưa phân loại",
+          stock: product.stock || 0,
+          price: product.price,
+          status: getStockStatus(product.stock),
+          images: product.images || [],
+          description: product.description,
+          sales: product.sales || 0,
+        }));
+
+        setInventory(inventoryData);
+      } else {
+        throw new Error(data.message || "Không thể lấy dữ liệu kho hàng");
+      }
+    } catch (err) {
+      console.error("❌ Error fetching inventory:", err);
+      // Lấy message lỗi chuẩn từ Axios response
+      const errorMessage =
+        err.response?.data?.message || err.message || "Lỗi kết nối server";
+      setError(errorMessage);
+      setInventory([]); // Reset list nếu lỗi
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  // 3. Cập nhật số lượng tồn kho
+  const updateStock = async (productId, newStock) => {
+    try {
+      const response = await inventoryApi.updateStock(productId, newStock);
+      const data = response.data;
+
+      if (data.success) {
+        // Cập nhật State nội bộ (Optimistic Update) để giao diện phản hồi ngay lập tức
+        setInventory((prev) =>
+          prev.map((item) =>
+            item.id === productId
+              ? { ...item, stock: newStock, status: getStockStatus(newStock) }
+              : item
+          )
+        );
+        return { success: true, data: data.data };
+      } else {
+        throw new Error(data.message || "Cập nhật thất bại");
+      }
+    } catch (err) {
+      console.error("❌ Error updating stock:", err);
+      const errorMsg = err.response?.data?.message || err.message;
+      return { success: false, error: errorMsg };
+    }
   };
 
-  const updateStock = (productId, newStock) => {
-    setInventory((prev) =>
-      prev.map((item) =>
-        item.id === productId
-          ? {
-              ...item,
-              currentStock: newStock,
-              status: getStockStatus(newStock, item.safetyStock),
-              totalValue: newStock * item.costPrice,
-            }
-          : item
-      )
-    );
-  };
-
-  const getStockStatus = (currentStock, safetyStock) => {
-    if (currentStock === 0) return "out_of_stock";
-    if (currentStock <= safetyStock) return "low_stock";
-    return "in_stock";
-  };
-
+  // 4. Thống kê tồn kho (Tính toán dựa trên State hiện tại)
   const getInventoryStats = () => {
-    const totalProducts = inventory.length;
-    const lowStockProducts = inventory.filter(
+    const total = inventory.length;
+    const active = inventory.filter((item) => item.status === "active").length;
+    const lowStock = inventory.filter(
       (item) => item.status === "low_stock"
     ).length;
-    const outOfStockProducts = inventory.filter(
+    const outOfStock = inventory.filter(
       (item) => item.status === "out_of_stock"
     ).length;
+
     const totalValue = inventory.reduce(
-      (sum, item) => sum + item.totalValue,
+      (sum, item) => sum + item.price * item.stock,
       0
     );
 
-    const turnoverRate = calculateTurnoverRate();
+    // Đếm số lượng danh mục duy nhất
+    const uniqueCategories = new Set(inventory.map((item) => item.category));
 
     return {
-      totalProducts,
-      lowStockProducts,
-      outOfStockProducts,
+      total,
+      active,
+      lowStock,
+      outOfStock,
       totalValue,
-      turnoverRate,
+      categories: uniqueCategories.size,
     };
   };
 
-  const calculateTurnoverRate = () => {
-    // Mock calculation - trong thực tế dựa trên sales data
-    return 2.8;
-  };
+  // Gọi API khi hook được mount
+  useEffect(() => {
+    fetchInventory();
+  }, [fetchInventory]);
 
   return {
     inventory,
-    suppliers,
     loading,
+    error,
     updateStock,
     getInventoryStats,
-    refetch: fetchInventoryData,
+    refetch: fetchInventory,
   };
 };

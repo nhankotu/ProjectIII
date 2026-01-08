@@ -7,160 +7,198 @@ const ProductForm = ({ product, onSubmit, isEditing, onCancel }) => {
     price: "",
     stock: "",
     category: "",
+    brand: "",
     description: "",
   });
   const [imageFiles, setImageFiles] = useState([]);
   const [videoFiles, setVideoFiles] = useState([]);
   const [selectedImages, setSelectedImages] = useState([]);
   const [selectedVideos, setSelectedVideos] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
 
+  // 🆕 1. Thêm State lưu danh mục
+  const [categories, setCategories] = useState([]);
+
+  // 🆕 2. Gọi API lấy danh mục từ Backend
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const token = localStorage.getItem("token"); // Lấy token để xác thực
+        const API_URL = import.meta.env.VITE_API_URL;
+
+        const res = await fetch(`${API_URL}/api/seller/categories`, {
+          headers: {
+            Authorization: `Bearer ${token}`, // Gửi kèm token vì route này có middleware 'protect'
+          },
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          setCategories(data.data);
+        } else {
+          console.error("Không lấy được danh mục:", data.message);
+        }
+      } catch (error) {
+        console.error("Lỗi kết nối lấy danh mục:", error);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  // ✅ Khởi tạo form data từ product (khi edit)
   useEffect(() => {
     if (product) {
       setFormData({
-        name: product.name,
-        price: product.price.toString(),
-        stock: product.stock.toString(),
-        category: product.category,
-        description: product.description,
+        name: product.name || "",
+        price: product.price?.toString() || "",
+        stock: product.stock?.toString() || "",
+        // Nếu product.category là object (có _id) thì lấy _id, nếu là chuỗi thì lấy nguyên
+        category: product.category?._id || product.category || "",
+        brand: product.brand?.name || product.brand || "",
+        description: product.description || "",
       });
       setSelectedImages(product.images || []);
       setSelectedVideos(product.videos || []);
+    } else {
+      // Reset form khi thêm mới
+      setFormData({
+        name: "",
+        price: "",
+        stock: "",
+        category: "",
+        description: "",
+        brand: "",
+      });
+      setImageFiles([]);
+      setVideoFiles([]);
+      setSelectedImages([]);
+      setSelectedVideos([]);
     }
   }, [product]);
 
+  // ✅ Xử lý chọn ảnh
   const handleImageSelect = (e) => {
     const files = Array.from(e.target.files);
+    if (files.length === 0) return;
 
-    // Lưu file thực tế
     setImageFiles((prev) => [...prev, ...files]);
 
-    // Tạo URLs để preview
+    // Tạo URL preview
     const imageUrls = files.map((file) => URL.createObjectURL(file));
     setSelectedImages((prev) => [...prev, ...imageUrls]);
+
+    // Reset input
+    e.target.value = "";
   };
 
+  // ✅ Xử lý chọn video
   const handleVideoSelect = (e) => {
     const files = Array.from(e.target.files);
+    if (files.length === 0) return;
 
-    // Lưu file thực tế
     setVideoFiles((prev) => [...prev, ...files]);
 
-    // Tạo URLs để preview
+    // Tạo URL preview
     const videoUrls = files.map((file) => URL.createObjectURL(file));
     setSelectedVideos((prev) => [...prev, ...videoUrls]);
+
+    // Reset input
+    e.target.value = "";
   };
 
+  // ✅ Xóa ảnh
   const removeImage = (index) => {
-    // Xóa cả file và preview
-    const newImageFiles = [...imageFiles];
-    const newImages = [...selectedImages];
-
-    newImageFiles.splice(index, 1);
-    newImages.splice(index, 1);
-
-    setImageFiles(newImageFiles);
-    setSelectedImages(newImages);
+    if (selectedImages[index]?.startsWith("blob:")) {
+      URL.revokeObjectURL(selectedImages[index]);
+    }
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // ✅ Xóa video
   const removeVideo = (index) => {
-    // Xóa cả file và preview
-    const newVideoFiles = [...videoFiles];
-    const newVideos = [...selectedVideos];
-
-    newVideoFiles.splice(index, 1);
-    newVideos.splice(index, 1);
-
-    setVideoFiles(newVideoFiles);
-    setSelectedVideos(newVideos);
+    if (selectedVideos[index]?.startsWith("blob:")) {
+      URL.revokeObjectURL(selectedVideos[index]);
+    }
+    setVideoFiles((prev) => prev.filter((_, i) => i !== index));
+    setSelectedVideos((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // ✅ Xử lý thay đổi form
   const handleChange = (e) => {
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: value,
     }));
   };
 
+  // ✅ Xử lý submit form
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Tạo FormData để gửi file
-    const submitData = new FormData();
-
-    // Thêm các field text
-    submitData.append("name", formData.name);
-    submitData.append("price", formData.price);
-    submitData.append("stock", formData.stock);
-    submitData.append("category", formData.category);
-    submitData.append("description", formData.description);
-    submitData.append("status", "pending");
-
-    // Thêm files ảnh
-    imageFiles.forEach((file) => {
-      submitData.append("images", file);
-    });
-
-    // Thêm files video
-    videoFiles.forEach((file) => {
-      submitData.append("videos", file);
-    });
-
-    console.log("📤 Submitting form with:", {
-      name: formData.name,
-      price: formData.price,
-      stock: formData.stock,
-      category: formData.category,
-      imageCount: imageFiles.length,
-      videoCount: videoFiles.length,
-    });
+    setSubmitting(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/products", {
-        method: "POST",
-        body: submitData, // Gửi FormData
-        // KHÔNG set Content-Type header, browser sẽ tự động set
+      // Chuẩn bị dữ liệu
+      const productData = {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        price: parseFloat(formData.price) || 0,
+        category: formData.category, // Bây giờ cái này sẽ là ID (ví dụ: 65a...)
+        stock: parseInt(formData.stock) || 0,
+        brand: formData.brand.trim(),
+        status: "active",
+      };
+
+      // Thêm media files (nếu có)
+      if (imageFiles.length > 0) {
+        productData.images = imageFiles;
+      }
+
+      if (videoFiles.length > 0) {
+        productData.videos = videoFiles;
+      }
+
+      console.log("📦 Submitting product data:", {
+        ...productData,
+        images: productData.images?.length || 0,
+        videos: productData.videos?.length || 0,
       });
 
-      const result = await response.json();
-
-      if (response.ok) {
-        console.log("✅ Product created successfully:", result);
-        // Giải phóng URLs tạm thời
-        selectedImages.forEach((url) => URL.revokeObjectURL(url));
-        selectedVideos.forEach((url) => URL.revokeObjectURL(url));
-
-        onSubmit(result.product);
-      } else {
-        console.error("❌ Server error:", result);
-        alert(result.message || "Có lỗi xảy ra khi thêm sản phẩm");
+      // Gọi callback từ parent component
+      if (onSubmit) {
+        await onSubmit(productData);
       }
     } catch (error) {
-      console.error("❌ Network error:", error);
-      alert("Không thể kết nối đến server");
+      console.error("❌ Form submission error:", error);
+      alert("Có lỗi xảy ra khi gửi form");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  // Hàm xử lý cập nhật sản phẩm (nếu là edit)
-  const handleUpdateSubmit = async (e) => {
-    e.preventDefault();
-
-    // Nếu là edit mode, gửi dữ liệu dạng JSON thông thường
-    const updateData = {
-      ...formData,
-      price: parseFloat(formData.price) || 0,
-      stock: parseInt(formData.stock) || 0,
-      images: selectedImages, // URLs hiện có
-      videos: selectedVideos, // URLs hiện có
+  // ✅ Cleanup URLs khi component unmount
+  useEffect(() => {
+    return () => {
+      selectedImages.forEach((url) => {
+        if (url.startsWith("blob:")) {
+          URL.revokeObjectURL(url);
+        }
+      });
+      selectedVideos.forEach((url) => {
+        if (url.startsWith("blob:")) {
+          URL.revokeObjectURL(url);
+        }
+      });
     };
-
-    console.log("📤 Updating product:", updateData);
-    onSubmit(updateData);
-  };
+  }, []);
 
   return (
     <form
-      onSubmit={isEditing ? handleUpdateSubmit : handleSubmit}
-      className="space-y-4 max-h-[80vh] overflow-y-auto"
+      onSubmit={handleSubmit}
+      className="space-y-4 max-h-[80vh] overflow-y-auto p-1"
     >
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -172,8 +210,9 @@ const ProductForm = ({ product, onSubmit, isEditing, onCancel }) => {
           required
           value={formData.name}
           onChange={handleChange}
-          className="w-full p-2 border border-gray-300 rounded-md"
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
           placeholder="Nhập tên sản phẩm"
+          disabled={submitting}
         />
       </div>
 
@@ -187,10 +226,12 @@ const ProductForm = ({ product, onSubmit, isEditing, onCancel }) => {
             name="price"
             required
             min="0"
+            step="0.01"
             value={formData.price}
             onChange={handleChange}
-            className="w-full p-2 border border-gray-300 rounded-md"
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
             placeholder="0"
+            disabled={submitting}
           />
         </div>
 
@@ -205,12 +246,14 @@ const ProductForm = ({ product, onSubmit, isEditing, onCancel }) => {
             min="0"
             value={formData.stock}
             onChange={handleChange}
-            className="w-full p-2 border border-gray-300 rounded-md"
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
             placeholder="0"
+            disabled={submitting}
           />
         </div>
       </div>
 
+      {/* 🆕 3. Phần Select Danh Mục đã được sửa đổi */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Danh mục *
@@ -220,16 +263,40 @@ const ProductForm = ({ product, onSubmit, isEditing, onCancel }) => {
           required
           value={formData.category}
           onChange={handleChange}
-          className="w-full p-2 border border-gray-300 rounded-md"
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          disabled={submitting}
         >
           <option value="">Chọn danh mục</option>
-          <option value="Thời trang">Thời trang</option>
-          <option value="Giày dép">Giày dép</option>
-          <option value="Phụ kiện">Phụ kiện</option>
-          <option value="Điện tử">Điện tử</option>
+          {categories.length > 0 ? (
+            categories.map((cat) => (
+              <option key={cat._id} value={cat._id}>
+                {cat.name}
+              </option>
+            ))
+          ) : (
+            <option value="" disabled>
+              Đang tải danh mục...
+            </option>
+          )}
         </select>
       </div>
 
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Thương hiệu
+        </label>
+        <input
+          type="text"
+          name="brand"
+          value={formData.brand}
+          onChange={handleChange}
+          className="w-full p-2 border border-gray-300 rounded-md"
+          placeholder="Ví dụ: Samsung, Apple (Để trống sẽ là No Brand)"
+          disabled={submitting}
+        />
+      </div>
+
+      {/* Media Upload Component */}
       <MediaUpload
         selectedImages={selectedImages}
         selectedVideos={selectedVideos}
@@ -237,6 +304,7 @@ const ProductForm = ({ product, onSubmit, isEditing, onCancel }) => {
         onVideoSelect={handleVideoSelect}
         onRemoveImage={removeImage}
         onRemoveVideo={removeVideo}
+        disabled={submitting}
       />
 
       <div>
@@ -247,9 +315,10 @@ const ProductForm = ({ product, onSubmit, isEditing, onCancel }) => {
           name="description"
           value={formData.description}
           onChange={handleChange}
-          className="w-full p-2 border border-gray-300 rounded-md"
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
           rows="4"
           placeholder="Mô tả chi tiết về sản phẩm..."
+          disabled={submitting}
         />
       </div>
 
@@ -257,15 +326,45 @@ const ProductForm = ({ product, onSubmit, isEditing, onCancel }) => {
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+          disabled={submitting}
+          className="px-4 py-2 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Hủy
         </button>
         <button
           type="submit"
-          className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700"
+          disabled={submitting}
+          className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
         >
-          {isEditing ? "Cập nhật" : "Thêm sản phẩm"}
+          {submitting ? (
+            <>
+              <svg
+                className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              Đang xử lý...
+            </>
+          ) : isEditing ? (
+            "Cập nhật sản phẩm"
+          ) : (
+            "Thêm sản phẩm"
+          )}
         </button>
       </div>
     </form>

@@ -24,9 +24,9 @@ const ShopPreview = ({ shopData }) => {
       <div className="border rounded-lg overflow-hidden mb-6">
         {/* Banner */}
         <div className="h-32 bg-gray-200 relative">
-          {basicInfo.shopBanner ? (
+          {basicInfo.banner ? ( // 👈 ĐỔI shopBanner → banner
             <img
-              src={basicInfo.shopBanner}
+              src={basicInfo.banner}
               alt="Shop banner"
               className="w-full h-full object-cover"
             />
@@ -42,11 +42,11 @@ const ShopPreview = ({ shopData }) => {
         {/* Shop Info */}
         <div className="p-4">
           <div className="flex items-start space-x-4">
-            {/* Logo - ĐÃ SỬA KHOẢNG CÁCH VÀ HIỆU ỨNG */}
+            {/* Logo - ĐÃ SỬA field */}
             <div className="w-20 h-20 rounded-xl border-4 border-white shadow-lg -mt-12 bg-white relative z-10">
-              {basicInfo.shopLogo ? (
+              {basicInfo.logo ? ( // 👈 ĐỔI shopLogo → logo
                 <img
-                  src={basicInfo.shopLogo}
+                  src={basicInfo.logo}
                   alt="Shop logo"
                   className="w-full h-full object-cover rounded-lg"
                 />
@@ -58,6 +58,7 @@ const ShopPreview = ({ shopData }) => {
                 </div>
               )}
             </div>
+
             {/* Shop Details */}
             <div className="flex-1">
               <h2 className="text-xl font-bold text-gray-900">

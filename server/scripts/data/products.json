@@ -1,0 +1,134 @@
+{
+  "products": [
+    {
+      "name": "Bàn Phím Cơ Gaming RGB",
+      "description": "Bàn phím cơ switch blue, đèn LED RGB 16.8 triệu màu, thiết kế gaming chuyên nghiệp.",
+      "price": 650000,
+      "category": "Điện tử",
+      "stock": 32,
+      "status": "active",
+      "images": [
+        "scripts/data/images/ban_phim_1.jpg",
+        "scripts/data/images/ban_phim_2.jpg"
+      ],
+      "videos": ["scripts/data/videos/ban_phim_demo.mp4"]
+    },
+    {
+      "name": "Chuột Không Dây Silent",
+      "description": "Chuột không dây công nghệ silent, kết nối USB 2.4GHz, pin sử dụng 12 tháng.",
+      "price": 180000,
+      "category": "Điện tử",
+      "stock": 48,
+      "status": "active",
+      "images": [
+        "scripts/data/images/chuot_khong_day_1.jpg",
+        "scripts/data/images/chuot_khong_day_2.jpg"
+      ],
+      "videos": []
+    },
+    {
+      "name": "Áo Sơ Mi Tay Dài Form Regular",
+      "description": "Áo sơ mi nam chất liệu cotton lụa, form regular thoải mái, phù hợp công sở.",
+      "price": 290000,
+      "category": "Thời trang",
+      "stock": 36,
+      "status": "active",
+      "images": [
+        "scripts/data/images/ao_so_mi_1.jpg",
+        "scripts/data/images/ao_so_mi_2.jpg"
+      ],
+      "videos": ["scripts/data/videos/ao_so_mi_demo.mp4"]
+    },
+    {
+      "name": "Giày Tây Da Thật Công Sở",
+      "description": "Giày tây nam da thật, đế cao su chống trượt, thiết kế lịch lãm cho công sở.",
+      "price": 780000,
+      "category": "Giày dép",
+      "stock": 24,
+      "status": "active",
+      "images": [
+        "scripts/data/images/giay_tay_1.jpg",
+        "scripts/data/images/giay_tay_2.jpg"
+      ],
+      "videos": ["scripts/data/videos/giay_tay_demo.mp4"]
+    },
+    {
+      "name": "Túi Đeo Chéo Thể Thao",
+      "description": "Túi đeo chéo thể thao đa năng, nhiều ngăn, chất liệu chống nước, dây đeo điều chỉnh.",
+      "price": 135000,
+      "category": "Phụ kiện",
+      "stock": 52,
+      "status": "active",
+      "images": [
+        "scripts/data/images/tui_deo_cheo_1.jpg",
+        "scripts/data/images/tui_deo_cheo_2.jpg"
+      ],
+      "videos": []
+    },
+    {
+      "name": "Mũ Lưỡi Trai Thời Trang",
+      "description": "Mũ lưỡi trai unisex, nhiều màu sắc, chất liệu cotton, điều chỉnh kích thước.",
+      "price": 75000,
+      "category": "Phụ kiện",
+      "stock": 68,
+      "status": "active",
+      "images": [
+        "scripts/data/images/mu_luoi_trai_1.jpg",
+        "scripts/data/images/mu_luoi_trai_2.jpg"
+      ],
+      "videos": ["scripts/data/videos/mu_luoi_trai_demo.mp4"]
+    },
+    {
+      "name": "Ốp Lưng Điện Thoại Chống Sốc",
+      "description": "Ốp lưng silicon chống sốc, bảo vệ toàn diện, nhiều mẫu mã cho các dòng điện thoại.",
+      "price": 45000,
+      "category": "Phụ kiện",
+      "stock": 85,
+      "status": "active",
+      "images": [
+        "scripts/data/images/op_lung_1.jpg",
+        "scripts/data/images/op_lung_2.jpg"
+      ],
+      "videos": []
+    },
+    {
+      "name": "Tai Nghe Chụp Tai Cao Cấp",
+      "description": "Tai nghe chụp tai âm thanh surround, khử tiếng ồn, thoải mái đeo nhiều giờ.",
+      "price": 420000,
+      "category": "Điện tử",
+      "stock": 28,
+      "status": "active",
+      "images": [
+        "scripts/data/images/tai_nghe_chup_tai_1.jpg",
+        "scripts/data/images/tai_nghe_chup_tai_2.jpg"
+      ],
+      "videos": ["scripts/data/videos/tai_nghe_chup_tai_demo.mp4"]
+    },
+    {
+      "name": "Quần Short Thể Thao Co Giãn",
+      "description": "Quần short thể thao chất liệu co giãn 4 chiều, thoáng mát, nhiều size.",
+      "price": 120000,
+      "category": "Thời trang",
+      "stock": 44,
+      "status": "active",
+      "images": [
+        "scripts/data/images/quan_short_1.jpg",
+        "scripts/data/images/quan_short_2.jpg"
+      ],
+      "videos": []
+    },
+    {
+      "name": "Bộ Dụng Cụ Sửa Chữa Đa Năng",
+      "description": "Bộ dụng cụ 35 món, đầy đủ tuốc nơ vít, cờ lê, kìm, hộp đựng gọn gàng.",
+      "price": 195000,
+      "category": "Đồ gia dụng",
+      "stock": 30,
+      "status": "active",
+      "images": [
+        "scripts/data/images/bo_dung_cu_1.jpg",
+        "scripts/data/images/bo_dung_cu_2.jpg"
+      ],
+      "videos": ["scripts/data/videos/bo_dung_cu_demo.mp4"]
+    }
+  ]
+}

@@ -1,12 +1,38 @@
-import React, { useState } from "react";
+import React, { useState, forwardRef, useImperativeHandle } from "react";
 
-const ShippingSection = ({ data, onSave, saving }) => {
-  const [formData, setFormData] = useState(data);
+const ShippingSection = forwardRef(({ data, onSave, saving }, ref) => {
+  const [formData, setFormData] = useState({
+    nationwide: data?.nationwide || false,
+    freeShippingThreshold: data?.freeShippingThreshold || 0,
+    fixedShippingFee: data?.fixedShippingFee || 0,
+    shippingPartners: data?.shippingPartners || [],
+  });
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSave("shipping", formData);
+  // Expose submit cho parent
+  useImperativeHandle(ref, () => ({
+    submit: async () => {
+      await onSave("shipping", formData);
+      return formData;
+    },
+  }));
+
+  const handleInputChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  const handlePartnerChange = (partner, checked) => {
+    const updatedPartners = checked
+      ? [...(formData.shippingPartners || []), partner]
+      : formData.shippingPartners?.filter((p) => p !== partner);
+    handleInputChange("shippingPartners", updatedPartners);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await ref.current?.submit();
+  };
+
+  const partners = ["ghtk", "ghn", "viettel", "j&t", "grab", "ninjavan"];
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -19,9 +45,7 @@ const ShippingSection = ({ data, onSave, saving }) => {
             type="checkbox"
             id="nationwide"
             checked={formData.nationwide}
-            onChange={(e) =>
-              setFormData((prev) => ({ ...prev, nationwide: e.target.checked }))
-            }
+            onChange={(e) => handleInputChange("nationwide", e.target.checked)}
             className="w-4 h-4 text-blue-600 rounded"
           />
           <label
@@ -41,10 +65,10 @@ const ShippingSection = ({ data, onSave, saving }) => {
             type="number"
             value={formData.freeShippingThreshold}
             onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                freeShippingThreshold: parseInt(e.target.value),
-              }))
+              handleInputChange(
+                "freeShippingThreshold",
+                parseInt(e.target.value) || 0
+              )
             }
             className="w-full p-2 border border-gray-300 rounded-md"
             placeholder="300000"
@@ -64,10 +88,10 @@ const ShippingSection = ({ data, onSave, saving }) => {
             type="number"
             value={formData.fixedShippingFee}
             onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                fixedShippingFee: parseInt(e.target.value),
-              }))
+              handleInputChange(
+                "fixedShippingFee",
+                parseInt(e.target.value) || 0
+              )
             }
             className="w-full p-2 border border-gray-300 rounded-md"
             placeholder="25000"
@@ -80,35 +104,25 @@ const ShippingSection = ({ data, onSave, saving }) => {
             Đối tác vận chuyển
           </label>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {["ghtk", "ghn", "viettel", "j&t", "grab", "ninjavan"].map(
-              (partner) => (
-                <div key={partner} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id={partner}
-                    checked={formData.shippingPartners?.includes(partner)}
-                    onChange={(e) => {
-                      const updatedPartners = e.target.checked
-                        ? [...(formData.shippingPartners || []), partner]
-                        : formData.shippingPartners?.filter(
-                            (p) => p !== partner
-                          );
-                      setFormData((prev) => ({
-                        ...prev,
-                        shippingPartners: updatedPartners,
-                      }));
-                    }}
-                    className="w-4 h-4 text-blue-600 rounded"
-                  />
-                  <label
-                    htmlFor={partner}
-                    className="text-sm text-gray-700 capitalize"
-                  >
-                    {partner.toUpperCase()}
-                  </label>
-                </div>
-              )
-            )}
+            {partners.map((partner) => (
+              <div key={partner} className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id={partner}
+                  checked={formData.shippingPartners.includes(partner)}
+                  onChange={(e) =>
+                    handlePartnerChange(partner, e.target.checked)
+                  }
+                  className="w-4 h-4 text-blue-600 rounded"
+                />
+                <label
+                  htmlFor={partner}
+                  className="text-sm text-gray-700 capitalize"
+                >
+                  {partner.toUpperCase()}
+                </label>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -124,6 +138,6 @@ const ShippingSection = ({ data, onSave, saving }) => {
       </form>
     </div>
   );
-};
+});
 
 export default ShippingSection;

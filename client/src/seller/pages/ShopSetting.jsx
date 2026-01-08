@@ -1,36 +1,72 @@
-// Cập nhật file ShopSettings.jsx - THÊM IMPORT VÀ COMPONENT
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useShopSettings } from "../hooks/useShopSettings";
 import BasicInfoSection from "../components/shop/BasicInfoSection";
 import PoliciesSection from "../components/shop/PoliciesSection";
 import ShippingSection from "../components/shop/ShippingSection";
 import ContactSection from "../components/shop/ContactSection";
-import SEOSection from "../components//shop/SEOSection";
+import SEOSection from "../components/shop/SEOSection";
 import ShopPreview from "../components/shop/ShopPreview";
 
 const ShopSettings = () => {
-  const {
-    shopData,
-    loading,
-    saving,
-    updateShopData,
-    saveAllSettings,
-    refetch,
-  } = useShopSettings();
-
+  const { shopData, loading, saving, refetch } = useShopSettings();
   const [saveMessage, setSaveMessage] = useState("");
-  const [activeTab, setActiveTab] = useState("settings"); // 'settings' or 'preview'
+  const [activeTab, setActiveTab] = useState("settings");
 
-  const handleSectionSave = async (section, data) => {
-    const result = await updateShopData(section, data);
-    setSaveMessage(result.message);
-    setTimeout(() => setSaveMessage(""), 3000);
+  const [formData, setFormData] = useState({
+    basicInfo: {},
+    policies: {},
+    shipping: {},
+    contact: {},
+    seo: {},
+  });
+
+  // Refs
+  const basicInfoRef = useRef();
+  const policiesRef = useRef();
+  const shippingRef = useRef();
+  const contactRef = useRef();
+  const seoRef = useRef();
+
+  // Cập nhật formData khi nhận dữ liệu API
+  useEffect(() => {
+    if (shopData && !loading) {
+      setFormData({
+        basicInfo: shopData.basicInfo || {},
+        policies: shopData.policies || {},
+        shipping: shopData.shipping || {},
+        contact: shopData.contact || {},
+        seo: shopData.seo || {},
+      });
+    }
+  }, [shopData, loading]);
+
+  // Hàm save từng section (truyền xuống child)
+  const handleSectionSave = (sectionKey, updatedData) => {
+    setFormData((prev) => ({
+      ...prev,
+      [sectionKey]: updatedData,
+    }));
   };
 
+  // Lưu tất cả section
   const handleSaveAll = async () => {
-    const result = await saveAllSettings(shopData);
-    setSaveMessage(result.message);
-    setTimeout(() => setSaveMessage(""), 3000);
+    setSaveMessage("Đang lưu tất cả...");
+    try {
+      // Gọi submit của các section có ref
+      await basicInfoRef.current?.submit?.();
+      await policiesRef.current?.submit?.();
+      await shippingRef.current?.submit?.();
+      await contactRef.current?.submit?.();
+      await seoRef.current?.submit?.();
+
+      setSaveMessage("💾 Lưu tất cả thành công!");
+      refetch(); // đồng bộ UI
+      setTimeout(() => setSaveMessage(""), 3000);
+    } catch (err) {
+      console.error("❌ Lỗi khi lưu tất cả:", err);
+      setSaveMessage("❌ Lỗi khi lưu tất cả");
+      setTimeout(() => setSaveMessage(""), 3000);
+    }
   };
 
   if (loading) {
@@ -43,7 +79,7 @@ const ShopSettings = () => {
 
   return (
     <div>
-      {/* Header với Tabs */}
+      {/* Header + Tabs */}
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <div>
@@ -103,54 +139,42 @@ const ShopSettings = () => {
         </div>
       </div>
 
-      {/* Content based on active tab */}
+      {/* Content */}
       {activeTab === "settings" ? (
-        /* Settings Sections */
         <div className="space-y-6">
           <BasicInfoSection
-            data={shopData.basicInfo || {}}
+            ref={basicInfoRef}
+            data={formData.basicInfo}
             onSave={handleSectionSave}
             saving={saving}
           />
-
           <PoliciesSection
-            data={shopData.policies || {}}
+            ref={policiesRef}
+            data={formData.policies}
             onSave={handleSectionSave}
             saving={saving}
           />
-
           <ShippingSection
-            data={shopData.shipping || {}}
+            ref={shippingRef}
+            data={formData.shipping}
             onSave={handleSectionSave}
             saving={saving}
           />
-
           <ContactSection
-            data={shopData.contact || {}}
+            ref={contactRef}
+            data={formData.contact}
             onSave={handleSectionSave}
             saving={saving}
           />
-
           <SEOSection
-            data={shopData.seo || {}}
+            ref={seoRef}
+            data={formData.seo}
             onSave={handleSectionSave}
             saving={saving}
           />
-
-          {/* Preview Note */}
-          <div className="p-4 bg-blue-50 rounded-lg">
-            <h4 className="font-semibold text-blue-800 mb-2">💡 Mẹo hữu ích</h4>
-            <p className="text-sm text-blue-700">
-              Sau khi cập nhật cài đặt, hãy nhấn <strong>"Xem trước"</strong> để
-              xem cửa hàng của bạn sẽ hiển thị thế nào cho khách hàng. Thông tin
-              chính xác và chuyên nghiệp sẽ giúp tăng độ tin cậy và tỷ lệ chuyển
-              đổi.
-            </p>
-          </div>
         </div>
       ) : (
-        /* Shop Preview */
-        <ShopPreview shopData={shopData} />
+        <ShopPreview shopData={formData} />
       )}
     </div>
   );

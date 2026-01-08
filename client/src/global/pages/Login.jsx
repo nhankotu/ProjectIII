@@ -1,58 +1,53 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom"; // Bỏ useNavigate vì không dùng nữa
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-
-const API_BASE = import.meta.env.VITE_API_URL;
+import { useAuth } from "../../contexts/AuthContext";
 
 const Login = () => {
-  const navigate = useNavigate();
+  // Không cần const navigate = useNavigate(); nữa
+  const { login } = useAuth(); // Không cần lấy biến 'user' ở đây nữa
+
   const [form, setForm] = useState({ username: "", password: "" });
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+
     try {
-      const { username, password } = form;
-      const res = await fetch(`${API_BASE}/api/users/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
+      const result = await login(form.username, form.password);
 
-      const data = await res.json();
+      console.log("FULL RESULT:", result);
 
-      if (res.ok) {
-        if (data.token) {
-          localStorage.setItem("token", data.token);
-          console.log("✅ Token saved to localStorage");
-        } else {
-          console.log("❌ No token in response!");
-        }
-
-        localStorage.setItem("user", JSON.stringify(data.user));
+      if (result && result.success) {
         toast.success("Đăng nhập thành công!");
 
-        switch (data.user.role) {
-          case "admin":
-            navigate("/admin");
-            break;
-          case "seller":
-            navigate("/seller");
-            break;
-          default:
-            navigate("/");
-        }
+        // CÁCH ĐƠN GIẢN NHẤT - KHÔNG TIMEOUT
+        const redirectPath = result.redirectTo || "/seller";
+        console.log("Redirecting to:", redirectPath);
+
+        // Dùng cách cơ bản nhất
+        window.location = redirectPath;
+
+        // Hoặc nếu vẫn không được
+        // window.location.href = redirectPath;
+
+        // IMPORTANT: Return ngay lập tức
+        return;
       } else {
-        toast.error(data.message || "Sai tài khoản hoặc mật khẩu");
+        toast.error(result?.error || "Đăng nhập thất bại");
       }
     } catch (error) {
-      console.error(error);
-      toast.error("Không thể kết nối tới máy chủ!");
+      console.error("Login Error:", error);
+      toast.error("Lỗi: " + error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -65,31 +60,26 @@ const Login = () => {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <Label htmlFor="username" className="text-gray-700">
-              Tên đăng nhập
-            </Label>
+            <Label htmlFor="username">Username / Email</Label>
             <Input
               id="username"
               name="username"
               value={form.username}
               onChange={handleChange}
-              placeholder="Nhập username"
               className="mt-1 bg-white/60 border-indigo-300 focus:ring-indigo-400"
               required
+              autoFocus
             />
           </div>
 
           <div>
-            <Label htmlFor="password" className="text-gray-700">
-              Mật khẩu
-            </Label>
+            <Label htmlFor="password">Mật khẩu</Label>
             <Input
               id="password"
               type="password"
               name="password"
               value={form.password}
               onChange={handleChange}
-              placeholder="••••••••"
               className="mt-1 bg-white/60 border-indigo-300 focus:ring-indigo-400"
               required
             />
@@ -97,9 +87,10 @@ const Login = () => {
 
           <Button
             type="submit"
+            disabled={loading}
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition-all shadow-md"
           >
-            Đăng nhập
+            {loading ? "Đang xử lý..." : "Đăng nhập"}
           </Button>
         </form>
 

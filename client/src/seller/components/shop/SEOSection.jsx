@@ -1,11 +1,29 @@
-import React, { useState } from "react";
+import React, { useState, useImperativeHandle, forwardRef } from "react";
 
-const SEOSection = ({ data, onSave, saving }) => {
-  const [formData, setFormData] = useState(data);
+const SEOSection = forwardRef(({ data, onSave, saving }, ref) => {
+  const [formData, setFormData] = useState({
+    metaTitle: data?.metaTitle || "",
+    metaDescription: data?.metaDescription || "",
+    keywords: data?.keywords || "",
+    customDomain: data?.customDomain || "",
+  });
 
-  const handleSubmit = (e) => {
+  // Expose hàm submit cho parent
+  useImperativeHandle(ref, () => ({
+    submit: async () => {
+      await onSave("seo", formData);
+      return formData;
+    },
+  }));
+
+  const handleInputChange = (field, value) => {
+    const updated = { ...formData, [field]: value };
+    setFormData(updated);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSave("seo", formData);
+    await ref.current?.submit();
   };
 
   return (
@@ -22,9 +40,7 @@ const SEOSection = ({ data, onSave, saving }) => {
             type="text"
             required
             value={formData.metaTitle}
-            onChange={(e) =>
-              setFormData((prev) => ({ ...prev, metaTitle: e.target.value }))
-            }
+            onChange={(e) => handleInputChange("metaTitle", e.target.value)}
             className="w-full p-2 border border-gray-300 rounded-md"
             placeholder="Tên cửa hàng - Mô tả ngắn"
             maxLength="60"
@@ -43,10 +59,7 @@ const SEOSection = ({ data, onSave, saving }) => {
             required
             value={formData.metaDescription}
             onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                metaDescription: e.target.value,
-              }))
+              handleInputChange("metaDescription", e.target.value)
             }
             rows="3"
             className="w-full p-2 border border-gray-300 rounded-md"
@@ -66,9 +79,7 @@ const SEOSection = ({ data, onSave, saving }) => {
           <input
             type="text"
             value={formData.keywords}
-            onChange={(e) =>
-              setFormData((prev) => ({ ...prev, keywords: e.target.value }))
-            }
+            onChange={(e) => handleInputChange("keywords", e.target.value)}
             className="w-full p-2 border border-gray-300 rounded-md"
             placeholder="từ khóa 1, từ khóa 2, từ khóa 3"
           />
@@ -85,9 +96,7 @@ const SEOSection = ({ data, onSave, saving }) => {
           <input
             type="text"
             value={formData.customDomain}
-            onChange={(e) =>
-              setFormData((prev) => ({ ...prev, customDomain: e.target.value }))
-            }
+            onChange={(e) => handleInputChange("customDomain", e.target.value)}
             className="w-full p-2 border border-gray-300 rounded-md"
             placeholder="tencuahang.shop"
           />
@@ -108,6 +117,6 @@ const SEOSection = ({ data, onSave, saving }) => {
       </form>
     </div>
   );
-};
+});
 
 export default SEOSection;

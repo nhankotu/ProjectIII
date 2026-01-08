@@ -1,7 +1,9 @@
-import React from "react";
-import StockAlertBadge from "./StockAlertBadge";
+import React, { useState } from "react";
 
 const InventoryTable = ({ inventory, onUpdateStock }) => {
+  const [editingStock, setEditingStock] = useState(null);
+  const [tempStockValue, setTempStockValue] = useState("");
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
@@ -9,14 +11,44 @@ const InventoryTable = ({ inventory, onUpdateStock }) => {
     }).format(amount);
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("vi-VN");
+  const getStatusBadge = (status, stock) => {
+    const statusConfig = {
+      active: { label: "Đang bán", color: "bg-green-100 text-green-800" },
+      low_stock: { label: "Sắp hết", color: "bg-yellow-100 text-yellow-800" },
+      out_of_stock: { label: "Hết hàng", color: "bg-red-100 text-red-800" },
+    };
+
+    const config = statusConfig[status] || {
+      label: "Không xác định",
+      color: "bg-gray-100 text-gray-800",
+    };
+
+    return (
+      <span
+        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${config.color}`}
+      >
+        {config.label}
+      </span>
+    );
   };
 
-  const handleStockUpdate = (productId, newStock) => {
+  const handleStockEdit = (item) => {
+    setEditingStock(item.id);
+    setTempStockValue(item.stock.toString());
+  };
+
+  const handleStockSave = (itemId) => {
+    const newStock = parseInt(tempStockValue) || 0;
     if (newStock >= 0) {
-      onUpdateStock(productId, parseInt(newStock));
+      onUpdateStock(itemId, newStock);
     }
+    setEditingStock(null);
+    setTempStockValue("");
+  };
+
+  const handleStockCancel = () => {
+    setEditingStock(null);
+    setTempStockValue("");
   };
 
   return (
@@ -26,39 +58,45 @@ const InventoryTable = ({ inventory, onUpdateStock }) => {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                SKU & Sản phẩm
+                Sản phẩm
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Phân loại
+                Danh mục
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Tồn kho
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Giá vốn
+                Giá bán
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Giá bán
+                Đã bán
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Trạng thái
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Nhà cung cấp
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Cập nhật
+                Thao tác
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {inventory.map((item) => (
               <tr key={item.id} className="hover:bg-gray-50">
+                {/* ✅ Sản phẩm */}
                 <td className="px-6 py-4">
                   <div className="flex items-center">
-                    <div className="flex-shrink-0 h-10 w-10 bg-blue-500 rounded flex items-center justify-center text-white font-bold">
-                      {item.sku.split("-")[0]}
-                    </div>
+                    {item.images && item.images.length > 0 ? (
+                      <img
+                        className="h-10 w-10 rounded object-cover"
+                        src={item.images[0].url}
+                        alt={item.name}
+                      />
+                    ) : (
+                      <div className="h-10 w-10 bg-blue-100 rounded flex items-center justify-center text-blue-600 font-bold">
+                        {item.name.charAt(0)}
+                      </div>
+                    )}
                     <div className="ml-4">
                       <div className="text-sm font-medium text-gray-900">
                         {item.name}
@@ -67,60 +105,81 @@ const InventoryTable = ({ inventory, onUpdateStock }) => {
                     </div>
                   </div>
                 </td>
+
+                {/* ✅ Danh mục - ĐÃ SỬA LỖI TẠI ĐÂY */}
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {item.category}
+                  {item.category?.name || "Chưa phân loại"}
                 </td>
+
+                {/* ✅ Tồn kho với chức năng edit */}
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="number"
-                      value={item.currentStock}
-                      onChange={(e) =>
-                        handleStockUpdate(item.id, e.target.value)
-                      }
-                      className="w-20 p-1 border border-gray-300 rounded text-sm text-center"
-                      min="0"
-                    />
-                    <span className="text-xs text-gray-500">
-                      /{item.safetyStock}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {formatCurrency(item.costPrice)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-semibold">
-                  {formatCurrency(item.salePrice)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <StockAlertBadge
-                    status={item.status}
-                    currentStock={item.currentStock}
-                    safetyStock={item.safetyStock}
-                  />
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  <div>
-                    <div className="font-medium">{item.supplier}</div>
-                    <div className="text-xs text-gray-500">
-                      {formatDate(item.lastRestocked)}
+                  {editingStock === item.id ? (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        value={tempStockValue}
+                        onChange={(e) => setTempStockValue(e.target.value)}
+                        className="w-20 p-1 border border-gray-300 rounded text-sm"
+                        min="0"
+                        autoFocus
+                      />
+                      <div className="flex space-x-1">
+                        <button
+                          onClick={() => handleStockSave(item.id)}
+                          className="text-green-600 hover:text-green-800 text-sm"
+                        >
+                          ✅
+                        </button>
+                        <button
+                          onClick={handleStockCancel}
+                          className="text-red-600 hover:text-red-800 text-sm"
+                        >
+                          ❌
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div
+                      className="flex items-center space-x-2 cursor-pointer group"
+                      onClick={() => handleStockEdit(item)}
+                    >
+                      <span className="text-sm font-medium">{item.stock}</span>
+                      <span className="text-xs text-gray-400 group-hover:text-blue-600">
+                        ✏️
+                      </span>
+                    </div>
+                  )}
                 </td>
+
+                {/* ✅ Giá bán */}
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
+                  {formatCurrency(item.price)}
+                </td>
+
+                {/* ✅ Đã bán */}
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {item.sales || 0}
+                </td>
+
+                {/* ✅ Trạng thái */}
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {getStatusBadge(item.status, item.stock)}
+                </td>
+
+                {/* ✅ Thao tác */}
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {item.daysInStock} ngày
+                  <button
+                    onClick={() => handleStockEdit(item)}
+                    className="text-blue-600 hover:text-blue-900 mr-3"
+                  >
+                    Sửa tồn kho
+                  </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-
-      {inventory.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
-          Không có sản phẩm nào trong kho
-        </div>
-      )}
     </div>
   );
 };

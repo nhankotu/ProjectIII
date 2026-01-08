@@ -59,3 +59,69 @@ export const requireAuth = async (req, res, next) => {
     });
   }
 };
+
+export const requireSeller = async (req, res, next) => {
+  try {
+    console.log("👨‍💼 Seller middleware called");
+
+    // Đảm bảo requireAuth đã chạy trước
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Vui lòng đăng nhập trước",
+      });
+    }
+
+    // Kiểm tra role - điều chỉnh logic theo model User của bạn
+    const allowedRoles = ["seller", "admin"];
+
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Truy cập bị từ chối. Yêu cầu quyền seller.",
+        userRole: req.user.role,
+      });
+    }
+
+    console.log("✅ Seller authorized:", req.user.username);
+    next();
+  } catch (error) {
+    console.error("❌ Seller middleware error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server khi xác thực quyền seller.",
+    });
+  }
+};
+export const requireAdmin = async (req, res, next) => {
+  try {
+    console.log("👮 Admin middleware called");
+
+    // 1. Đảm bảo requireAuth đã chạy và user đã đăng nhập
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Vui lòng đăng nhập trước khi thực hiện thao tác này.",
+      });
+    }
+
+    // 2. Kiểm tra quyền Admin
+    // Lưu ý: So sánh chính xác chuỗi "admin"
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Truy cập bị từ chối. Chỉ Admin mới có quyền này.",
+        userRole: req.user.role, // Trả về role hiện tại để debug dễ hơn
+      });
+    }
+
+    console.log("✅ Admin authorized:", req.user.username);
+    next();
+  } catch (error) {
+    console.error("❌ Admin middleware error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server khi xác thực quyền Admin.",
+    });
+  }
+};

@@ -1,126 +1,143 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Star, ShoppingCart, Eye } from "lucide-react";
+import { useCart } from "../../../contexts/CartContext";
 
-const ProductCard = ({ product, onAddToCart, onQuickView }) => {
-  const discount = product.originalPrice
-    ? Math.round(
-        ((product.originalPrice - product.price) / product.originalPrice) * 100
-      )
-    : 0;
+const ProductCard = ({ product }) => {
+  const { addToCart, isInCart } = useCart();
+  const isProductInCart = isInCart(product.id);
+
+  const handleAddToCart = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    addToCart(product, 1);
+  };
+
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(price);
+  };
 
   return (
-    <Card className="group hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
-      <CardContent className="p-0">
-        {/* Product Image */}
-        <div className="relative overflow-hidden">
-          <Link to={`/product/${product.id}`}>
-            <img
-              src={product.image}
-              alt={product.name}
-              className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-300"
-            />
-          </Link>
+    <Link
+      to={`/product/${product.id}`}
+      className="group bg-white rounded-xl shadow-sm hover:shadow-lg transition-shadow overflow-hidden"
+    >
+      {/* Product Image */}
+      <div className="relative h-48 overflow-hidden">
+        <img
+          src={product.image || "/api/placeholder/300/300"}
+          alt={product.name}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
 
-          {/* Discount Badge */}
-          {discount > 0 && (
-            <Badge className="absolute top-2 left-2 bg-red-500 hover:bg-red-600">
-              -{discount}%
-            </Badge>
-          )}
+        {/* Discount Badge */}
+        {product.discount > 0 && (
+          <div className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
+            -{product.discount}%
+          </div>
+        )}
 
-          {/* Out of Stock */}
-          {!product.inStock && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-              <Badge variant="secondary" className="text-white bg-gray-800">
-                Hết hàng
-              </Badge>
-            </div>
-          )}
-
-          {/* Quick Actions */}
-          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 space-y-2">
-            <Button
-              size="icon"
-              variant="secondary"
-              className="h-8 w-8 bg-white hover:bg-gray-100"
-              onClick={() => onQuickView?.(product)}
+        {/* Add to Cart Button */}
+        <button
+          onClick={handleAddToCart}
+          className={`absolute bottom-3 right-3 p-2 rounded-full shadow-lg transition-all ${
+            isProductInCart
+              ? "bg-green-500 hover:bg-green-600 text-white"
+              : "bg-white hover:bg-blue-500 hover:text-white text-gray-700"
+          }`}
+          title={isProductInCart ? "Already in cart" : "Add to cart"}
+        >
+          {isProductInCart ? (
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <Eye className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Product Info */}
-        <div className="p-4">
-          {/* Category */}
-          // Tìm đoạn code hiển thị category (khoảng dòng 61)
-          {product.category && (
-            <p className="text-xs text-gray-500 mb-1">
-              {/* ✅ Sửa thành: */}
-              {product.category.name || product.category}
-            </p>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          ) : (
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+              />
+            </svg>
           )}
-          {/* Product Name */}
-          <Link to={`/product/${product.id}`}>
-            <h3 className="font-semibold text-gray-900 hover:text-blue-600 line-clamp-2 mb-2 min-h-[2.5rem]">
-              {product.name}
-            </h3>
-          </Link>
-          {/* Rating */}
-          <div className="flex items-center gap-1 mb-2">
-            <div className="flex items-center">
-              {[...Array(5)].map((_, i) => (
-                <Star
-                  key={i}
-                  className={`h-3 w-3 ${
-                    i < Math.floor(product.rating || 0)
-                      ? "text-yellow-400 fill-yellow-400"
-                      : "text-gray-300"
-                  }`}
-                />
-              ))}
-            </div>
-            <span className="text-xs text-gray-500">
-              ({product.reviewCount || 0})
-            </span>
-          </div>
-          {/* Price */}
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-lg font-bold text-red-600">
+        </button>
+      </div>
+
+      {/* Product Info */}
+      <div className="p-4">
+        <h3 className="font-semibold text-gray-800 group-hover:text-blue-600 transition-colors truncate">
+          {product.name}
+        </h3>
+
+        <div className="mt-2 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            {/* Price */}
+            <span className="text-xl font-bold text-blue-600">
               {formatPrice(product.price)}
             </span>
+
+            {/* Original Price (if discounted) */}
             {product.originalPrice && product.originalPrice > product.price && (
-              <span className="text-sm text-gray-500 line-through">
+              <span className="text-sm text-gray-400 line-through">
                 {formatPrice(product.originalPrice)}
               </span>
             )}
           </div>
-          {/* Add to Cart Button */}
-          <Button
-            className="w-full"
-            size="sm"
-            onClick={() => onAddToCart?.(product)}
-            disabled={!product.inStock}
-          >
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            {product.inStock ? "Thêm giỏ hàng" : "Hết hàng"}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
 
-// Format price helper function
-const formatPrice = (price) => {
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-  }).format(price);
+          {/* Rating */}
+          <div className="flex items-center">
+            <div className="flex text-yellow-400">
+              {[...Array(5)].map((_, i) => (
+                <svg
+                  key={i}
+                  className={`w-4 h-4 ${
+                    i < Math.floor(product.rating || 0)
+                      ? "fill-current"
+                      : "fill-gray-300"
+                  }`}
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
+                </svg>
+              ))}
+            </div>
+            <span className="ml-1 text-sm text-gray-600">
+              ({product.reviewCount || 0})
+            </span>
+          </div>
+        </div>
+
+        {/* Stock Status */}
+        <div className="mt-2">
+          {product.stock > 0 ? (
+            <span className="text-sm text-green-600">
+              In stock ({product.stock} left)
+            </span>
+          ) : (
+            <span className="text-sm text-red-600">Out of stock</span>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
 };
 
 export default ProductCard;

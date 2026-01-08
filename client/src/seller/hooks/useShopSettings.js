@@ -40,7 +40,6 @@ export const useShopSettings = () => {
         setShopData(result.data || {});
       } else {
         console.error("❌ Failed to fetch shop settings");
-        // Fallback: set empty data
         setShopData({});
       }
     } catch (error) {
@@ -51,6 +50,45 @@ export const useShopSettings = () => {
     }
   };
 
+  // ✅ THÊM HÀM UPLOAD ẢNH
+  const uploadShopImage = async (file, type) => {
+    try {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        throw new Error("Vui lòng đăng nhập lại");
+      }
+
+      const formData = new FormData();
+      formData.append("image", file);
+      formData.append("type", type);
+
+      console.log(`📤 Uploading ${type}...`);
+
+      const response = await fetch(`${API_BASE}/api/seller/settings/upload`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          // 🔥 KHÔNG set Content-Type cho FormData - browser sẽ tự set
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+      console.log("📡 Upload response from server:", result);
+
+      // 🔥 QUAN TRỌNG: Trả về result GỐC từ server, không thay đổi cấu trúc
+      return result;
+    } catch (error) {
+      console.error("❌ Error uploading image:", error);
+      // 🔥 Trả về response error đúng cấu trúc
+      return {
+        success: false,
+        message: "Lỗi kết nối server khi upload ảnh",
+        error: error.message,
+      };
+    }
+  };
   const updateShopData = async (section, data) => {
     setSaving(true);
     try {
@@ -79,7 +117,6 @@ export const useShopSettings = () => {
       console.log("📡 Update response:", result);
 
       if (result.success) {
-        // Cập nhật state local với data mới
         setShopData((prev) => ({
           ...prev,
           [section]: { ...prev[section], ...data },
@@ -158,6 +195,7 @@ export const useShopSettings = () => {
     saving,
     updateShopData,
     saveAllSettings,
+    uploadShopImage, // 👈 THÊM HÀM MỚI
     refetch: fetchShopData,
   };
 };

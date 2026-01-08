@@ -1,115 +1,70 @@
 import User from "../models/User.js";
-import OTP from "../models/otp.js";
 import jwt from "jsonwebtoken";
 
-// Đăng ký
-export const registerUser = async (req, res) => {
-  try {
-    const { username, email, password, role } = req.body;
-    console.log(req.body);
-    // Kiểm tra dữ liệu
-    if (!username || !email || !password) {
-      return res
-        .status(400)
-        .json({ message: "Vui lòng nhập đầy đủ thông tin." });
-    }
-
-    // Kiểm tra trùng dữ liệu
-    const emailExists = await User.findOne({ email });
-    if (emailExists) {
-      return res.status(400).json({ message: "Email đã tồn tại!" });
-    }
-
-    const usernameExists = await User.findOne({ username });
-    if (usernameExists) {
-      return res.status(400).json({ message: "Tên đăng nhập đã tồn tại!" });
-    }
-
-    //otp
-    // Nếu chưa có otp gửi về trước đó => thông báo gửi OTP
-    if (!otp) {
-      return res
-        .status(200)
-        .json({ message: "Vui lòng xác nhận OTP trước khi đăng ký" });
-    }
-    // Kiểm tra OTP
-    const otpRecord = await OTP.findOne({ email, otp });
-    if (!otpRecord || otpRecord.expiresAt < new Date()) {
-      return res
-        .status(400)
-        .json({ message: "OTP không hợp lệ hoặc đã hết hạn" });
-    }
-
-    // Xóa OTP sau khi xác thực
-    await OTP.deleteOne({ email, otp });
-
-    // Tạo người dùng mới
-    const user = new User({ username, email, password, role });
-    await user.save();
-
-    res.status(201).json({ message: "Đăng ký thành công!", user });
-  } catch (error) {
-    console.error("❌ Lỗi đăng ký:", error);
-    res.status(500).json({ message: "Lỗi server!" });
-  }
-};
-
-// Đăng nhập
 export const loginUser = async (req, res) => {
   try {
+    // 1. Nhận input (Lưu ý: biến username ở đây có thể là email do người dùng nhập)
     const { username, password } = req.body;
 
     if (!username || !password) {
       return res
         .status(400)
-        .json({ message: "Vui lòng nhập email và mật khẩu." });
+        .json({ message: "Vui lòng nhập tài khoản và mật khẩu." });
     }
 
-    const user = await User.findOne({ username });
+    // 2. Tìm User bằng Username HOẶC Email (Logic chuẩn UX)
+    const user = await User.findOne({
+      $or: [{ email: username }, { username: username }],
+    });
+
+    // 3. Check Pass (Plain text mode)
     if (!user || user.password !== password) {
       return res
         .status(400)
-        .json({ message: "Sai tên đăng nhập hoặc mật khẩu." });
+        .json({ message: "Tài khoản hoặc mật khẩu không chính xác." });
     }
 
-    // TẠO TOKEN
-    const JWT_SECRET = process.env.JWT_SECRET;
+    // 4. Check isActive
+    if (user.isActive === false) {
+      if (user.role === "seller") {
+        return res.status(403).json({
+          message: "Tài khoản Seller đang chờ duyệt hoặc đã bị khóa.",
+        });
+      }
+      return res.status(403).json({
+        message: "Tài khoản đã bị khóa. Vui lòng liên hệ Admin.",
+      });
+    }
+
+    // 5. Tạo Token (QUAN TRỌNG: Phải có ROLE)
     const token = jwt.sign(
       {
         id: user._id,
         username: user.username,
+        role: user.role, // <--- Đã thêm role
       },
-      JWT_SECRET,
+      process.env.JWT_SECRET,
       { expiresIn: "30d" }
     );
 
-    console.log("✅ Token generated:", token);
+    // 6. Xử lý dữ liệu trả về (Loại bỏ password an toàn)
+    const userResponse = { ...user._doc }; // Copy dữ liệu user
+    delete userResponse.password; // Xóa password khỏi object trả về
 
-    // TRẢ VỀ ĐẦY ĐỦ THÔNG TIN USER THEO MODEL
+    // Logic redirect (Frontend nên xử lý cái này, nhưng backend gợi ý cũng ok)
+    let redirectTo = "/";
+    if (user.role === "admin") redirectTo = "/admin";
+    else if (user.role === "seller") redirectTo = "/seller";
+
     res.status(200).json({
+      success: true,
       message: "Đăng nhập thành công!",
-      token: token,
-      user: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        // THÊM CÁC TRƯỜNG MỚI TỪ MODEL
-        name: user.name, // Tên hiển thị
-        phone: user.phone, // Số điện thoại
-        avatar: user.avatar, // URL avatar
-        addresses: user.addresses, // Danh sách địa chỉ
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
-      redirectTo:
-        user.role === "admin"
-          ? "/admin"
-          : user.role === "seller"
-          ? "/seller"
-          : "/",
+      token,
+      user: userResponse, // Trả về object đã xóa password
+      redirectTo,
     });
   } catch (error) {
+    console.error("Login Error:", error);
     res.status(500).json({ message: "Lỗi server", error: error.message });
   }
 };

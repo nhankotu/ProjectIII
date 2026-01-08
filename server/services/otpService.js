@@ -1,4 +1,4 @@
-import OTP from "../models/otp.js";
+import OTP from "../models/Otp.js";
 
 export const sendOTPService = async (email) => {
   let otpCode = Math.floor(100000 + Math.random() * 900000).toString();

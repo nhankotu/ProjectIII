@@ -1,5 +1,9 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { Toaster } from "@/components/ui/sonner"; // ✅ Đã có import
+import { Toaster } from "@/components/ui/sonner";
+
+// 1. IMPORT CÁC CONTEXT PROVIDER
+import { AuthProvider } from "./contexts/AuthContext";
+import { CartProvider } from "./contexts/CartContext";
 
 import AdminApp from "./admin/AdminApp";
 import SellerApp from "./seller/SellerApp";
@@ -10,28 +14,31 @@ import NotFound from "./global/pages/NotFound";
 
 function App() {
   return (
-    <>
-      <BrowserRouter>
-        <Routes>
-          {/* 🔑 Trang dùng chung */}
+    <BrowserRouter>
+      {/* 2. BỌC PROVIDER Ở CẤP CAO NHẤT (Bên trong BrowserRouter) */}
+      <AuthProvider>
+        <CartProvider>
+          <Routes>
+            {/* 🔑 Trang dùng chung - Giờ đây Login đã truy cập được AuthContext */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
 
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+            {/* 🧩 Các hệ thống con */}
+            <Route path="/admin/*" element={<AdminApp />} />
+            <Route path="/seller/*" element={<SellerApp />} />
 
-          {/* 🧩 Các hệ thống con */}
-          <Route path="/admin/*" element={<AdminApp />} />
-          <Route path="/seller/*" element={<SellerApp />} />
+            {/* 🏠 Trang chính */}
+            <Route path="/*" element={<CustomerApp />} />
 
-          {/* 🏠 Trang chính */}
-          <Route path="/*" element={<CustomerApp />} />
-          {/* ⚠️ Trang mặc định hoặc sai đường dẫn */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+            {/* ⚠️ Trang mặc định */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
 
-      {/* ✅ Toaster phải được render ở cuối để hoạt động */}
-      <Toaster />
-    </>
+          {/* Toaster để trong Provider để chắc chắn nhận được style/context nếu cần */}
+          <Toaster />
+        </CartProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
