@@ -1,4 +1,4 @@
-import Product from "../../models/Product.js";
+import Product from "../../models/A.js";
 
 // ==========================================
 // 1. GET ALL: Tra cứu & Soát lỗi (Advanced Filter)

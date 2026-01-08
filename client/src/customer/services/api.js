@@ -76,9 +76,6 @@ export const userAPI = {
   // 2. Thêm mới
   addAddress: (data) => apiClient.post("/api/users/address", data),
 
-  // 3. Cập nhật
-  updateAddress: (id, data) => apiClient.put(`/api/users/address/${id}`, data),
-
   // 4. Xóa
   deleteAddress: (id) => apiClient.delete(`/api/users/address/${id}`),
 

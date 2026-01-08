@@ -1,5 +1,5 @@
 import FlashSale from "../../models/FlashSale.js";
-import Product from "../../models/Product.js";
+import Product from "../../models/A.js";
 
 // ➕ Gửi yêu cầu Flash Sale mới
 export const createFlashSaleRequest = async (req, res) => {
