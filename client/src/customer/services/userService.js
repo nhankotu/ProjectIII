@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.REACT_APP_API_URL;
+const API_BASE_URL = process.env.VITE_API_URL;
 
 // Helper function để xử lý response
 const handleResponse = async (response) => {
