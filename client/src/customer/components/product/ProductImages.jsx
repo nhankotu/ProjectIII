@@ -1,21 +1,58 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 
-const ProductImages = ({ images, productName }) => {
+const API_BASE_URL = import.meta.env.VITE_API_URL;
+
+const normalizeImageUrl = (img) => {
+  if (!img) return null;
+
+  // string
+  if (typeof img === "string") {
+    if (img.startsWith("http")) return img;
+    return `${API_BASE_URL}${img}`;
+  }
+
+  // object { url }
+  if (img.url) {
+    if (img.url.startsWith("http")) return img.url;
+    return `${API_BASE_URL}${img.url}`;
+  }
+
+  return null;
+};
+
+const FALLBACK_IMAGE = "/images/placeholder-product.jpg";
+
+const ProductImages = ({ images = [], productName = "" }) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
 
-  // Mock images nếu không có images
-  const productImages =
-    images && images.length > 0 ? images : ["/images/placeholder-product.jpg"];
+  /**
+   * Chuẩn hóa & cache danh sách ảnh
+   */
+  const productImages = useMemo(() => {
+    const normalized =
+      Array.isArray(images) && images.length > 0
+        ? images.map(normalizeImageUrl).filter(Boolean)
+        : [];
 
-  const mainImage = productImages[selectedImageIndex];
+    return normalized.length > 0 ? normalized : [FALLBACK_IMAGE];
+  }, [images]);
+
+  const mainImage = productImages[selectedImageIndex] || productImages[0];
+
+  /**
+   * Khi ảnh lỗi → fallback
+   */
+  const handleImageError = (e) => {
+    e.target.src = FALLBACK_IMAGE;
+  };
 
   return (
     <div className="space-y-4">
-      {/* Main Image */}
+      {/* ================= MAIN IMAGE ================= */}
       <Card className="relative overflow-hidden aspect-square">
         <div
           className={`relative w-full h-full ${
@@ -25,10 +62,12 @@ const ProductImages = ({ images, productName }) => {
           <img
             src={mainImage}
             alt={productName}
+            loading="lazy"
+            onError={handleImageError}
+            onClick={() => setIsZoomed((prev) => !prev)}
             className={`w-full h-full object-cover transition-transform duration-300 ${
               isZoomed ? "scale-150" : "scale-100"
             }`}
-            onClick={() => setIsZoomed(!isZoomed)}
           />
 
           {/* Zoom Controls */}
@@ -37,7 +76,7 @@ const ProductImages = ({ images, productName }) => {
               variant="secondary"
               size="icon"
               className="h-8 w-8 bg-white/90 hover:bg-white"
-              onClick={() => setIsZoomed(!isZoomed)}
+              onClick={() => setIsZoomed((prev) => !prev)}
             >
               {isZoomed ? (
                 <ZoomOut className="h-4 w-4" />
@@ -45,6 +84,7 @@ const ProductImages = ({ images, productName }) => {
                 <ZoomIn className="h-4 w-4" />
               )}
             </Button>
+
             {isZoomed && (
               <Button
                 variant="secondary"
@@ -59,25 +99,27 @@ const ProductImages = ({ images, productName }) => {
         </div>
       </Card>
 
-      {/* Thumbnail Gallery */}
+      {/* ================= THUMBNAILS ================= */}
       {productImages.length > 1 && (
         <div className="flex space-x-2 overflow-x-auto pb-2">
           {productImages.map((image, index) => (
             <button
               key={index}
+              onClick={() => {
+                setSelectedImageIndex(index);
+                setIsZoomed(false);
+              }}
               className={`flex-shrink-0 w-16 h-16 border-2 rounded-lg overflow-hidden transition-all ${
                 selectedImageIndex === index
                   ? "border-blue-600 ring-2 ring-blue-200"
                   : "border-gray-200 hover:border-gray-300"
               }`}
-              onClick={() => {
-                setSelectedImageIndex(index);
-                setIsZoomed(false);
-              }}
             >
               <img
                 src={image}
-                alt={`${productName} - Hình ${index + 1}`}
+                alt={`${productName} - ${index + 1}`}
+                loading="lazy"
+                onError={handleImageError}
                 className="w-full h-full object-cover"
               />
             </button>
@@ -85,7 +127,7 @@ const ProductImages = ({ images, productName }) => {
         </div>
       )}
 
-      {/* Image Counter */}
+      {/* ================= COUNTER ================= */}
       <div className="text-sm text-gray-500 text-center">
         Hình {selectedImageIndex + 1} / {productImages.length}
       </div>

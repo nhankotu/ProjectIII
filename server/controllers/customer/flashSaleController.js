@@ -12,17 +12,21 @@ export const getActiveFlashSales = async (req, res) => {
     })
       .populate({
         path: "products.product",
-        // ⚠️ Quan trọng: Phải lấy cả field 'images' ra
+        // 👇 SỬA 1: Đổi tên trường sang camelCase (Bỏ dấu gạch dưới)
         select:
-          "name thumbnail images price original_price slug is_active is_deleted stock",
+          "name thumbnail images price originalPrice slug isActive isDeleted stock",
       })
       .sort({ endTime: 1 });
 
     const cleanData = sales.reduce((acc, sale) => {
+      // 👇 SỬA 2: Lọc sản phẩm phải dùng đúng tên biến isActive/isDeleted
       const validProducts = sale.products.filter((item) => {
         if (!item || !item.product) return false;
         const p = item.product;
-        return p.is_active === true && p.is_deleted === false;
+
+        // Kiểm tra an toàn: Nếu isActive undefined thì coi như true (tuỳ logic bạn)
+        // Nhưng chuẩn nhất là check: p.isActive === true
+        return p.isActive === true && p.isDeleted === false;
       });
 
       if (validProducts.length > 0) {
@@ -34,25 +38,27 @@ export const getActiveFlashSales = async (req, res) => {
           products: validProducts.map((item) => {
             const prod = item.product;
 
-            // 📸 LOGIC LẤY ẢNH THÔNG MINH (Smart Image Selection)
-            let imageUrl = "https://via.placeholder.com/300"; // Ảnh mặc định phòng hờ
+            // 📸 LOGIC LẤY ẢNH (Đã tối ưu cho cả trường hợp string và object)
+            let imageUrl = "https://via.placeholder.com/300";
 
-            // Ưu tiên 1: Lấy Thumbnail nếu có
-            if (prod.thumbnail && prod.thumbnail.url) {
-              imageUrl = prod.thumbnail.url;
-            }
-            // Ưu tiên 2: Nếu không có thumbnail, lấy ảnh đầu tiên trong mảng images
-            // 👇 CHÍNH LÀ ĐOẠN NÀY SẼ CỨU BẠN
-            else if (prod.images && prod.images.length > 0) {
-              imageUrl = prod.images[0].url;
+            if (prod.thumbnail) {
+              // Nếu thumbnail là object cloudinary
+              if (prod.thumbnail.url) imageUrl = prod.thumbnail.url;
+              // Nếu thumbnail là string
+              else if (typeof prod.thumbnail === "string")
+                imageUrl = prod.thumbnail;
+            } else if (prod.images && prod.images.length > 0) {
+              // Check an toàn cho images
+              imageUrl = prod.images[0].url || prod.images[0];
             }
 
             return {
               _id: prod._id,
               name: prod.name,
-              thumbnail: imageUrl, // ✅ Giờ chắc chắn sẽ có link ảnh
+              thumbnail: imageUrl,
               slug: prod.slug,
-              originalPrice: prod.original_price,
+              // 👇 SỬA 3: Lấy đúng tên field originalPrice. Fallback về price nếu không có.
+              originalPrice: prod.originalPrice || prod.price,
               salePrice: item.salePrice,
               discountPercent: Math.round(
                 ((prod.price - item.salePrice) / prod.price) * 100

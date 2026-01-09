@@ -1,83 +1,71 @@
 import React, { useState, useEffect } from "react";
 import ProductCard from "../common/ProductCard";
-// Đảm bảo đường dẫn import đúng với cấu trúc thư mục của bạn
 import { productService } from "../../services/productService";
 
 const FlashSaleSection = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Fake Timer logic
   const [timeLeft, setTimeLeft] = useState({
     hours: 12,
     minutes: 0,
     seconds: 0,
   });
 
-  // Fetch flash sale products
   useEffect(() => {
     const fetchFlashSaleProducts = async () => {
       try {
         setLoading(true);
         const response = await productService.getFlashSaleProducts();
-        console.log("Dữ liệu Flash Sale raw:", response);
 
-        let productArray = [];
+        // --- LOGIC XỬ LÝ DỮ LIỆU ĐÚNG CHUẨN ---
+        // Backend trả về: { success: true, data: [ { title: "...", products: [...] } ] }
+        const campaigns = response.data?.data || response.data || [];
 
-        // --- 1. LOGIC PHÒNG THỦ: Kiểm tra kỹ các trường hợp trả về ---
-        if (response && Array.isArray(response.data)) {
-          // Trường hợp chuẩn: { success: true, data: [...] }
-          productArray = response.data;
-        } else if (Array.isArray(response)) {
-          // Trường hợp backend trả thẳng mảng: [...]
-          productArray = response;
-        } else if (response && Array.isArray(response.products)) {
-          // Trường hợp khác: { products: [...] }
-          productArray = response.products;
+        let allProducts = [];
+
+        // 1. Nếu có chiến dịch Flash Sale -> Lấy sản phẩm từ bên trong ra
+        if (Array.isArray(campaigns) && campaigns.length > 0) {
+          // Flatten: Gom tất cả sản phẩm của các chiến dịch lại
+          allProducts = campaigns.flatMap(
+            (campaign) => campaign.products || []
+          );
         }
 
-        // --- 2. FALLBACK: Nếu không có Flash Sale nào, lấy tạm sản phẩm thường để test giao diện ---
-        if (productArray.length === 0) {
-          console.warn(
-            "⚠️ Flash Sale trống! Đang lấy sản phẩm thường để test giao diện..."
-          );
+        // 2. FALLBACK: Nếu không có Flash Sale -> Lấy sản phẩm nổi bật (Featured)
+        if (allProducts.length === 0) {
+          // console.warn("Flash Sale trống! Đang lấy sản phẩm thường demo...");
           try {
             const fallbackRes = await productService.getFeaturedProducts();
-            if (fallbackRes && Array.isArray(fallbackRes.data)) {
-              productArray = fallbackRes.data;
-            } else if (Array.isArray(fallbackRes)) {
-              productArray = fallbackRes;
-            }
+            const fallbackData =
+              fallbackRes.data?.data || fallbackRes.data || [];
+            allProducts = Array.isArray(fallbackData) ? fallbackData : [];
           } catch (err) {
-            console.error("Không lấy được dữ liệu fallback");
+            console.error("Lỗi lấy dữ liệu fallback");
           }
         }
 
-        // Cập nhật state (chỉ lấy 6 sản phẩm đầu)
-        setProducts(productArray.slice(0, 6));
+        // Lấy tối đa 6-10 sản phẩm để hiển thị đẹp
+        setProducts(allProducts.slice(0, 10));
       } catch (error) {
-        console.error("Error fetching flash sale products:", error);
+        console.error("Lỗi fetch Flash Sale:", error);
       } finally {
         setLoading(false);
       }
     };
 
     fetchFlashSaleProducts();
-  }, []);
 
-  // Countdown timer
-  useEffect(() => {
+    // Timer Logic (Giữ nguyên)
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
-        if (prev.seconds > 0) {
-          return { ...prev, seconds: prev.seconds - 1 };
-        } else if (prev.minutes > 0) {
+        if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
+        if (prev.minutes > 0)
           return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
-        } else if (prev.hours > 0) {
+        if (prev.hours > 0)
           return { hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        } else {
-          clearInterval(timer);
-          // Reset lại timer cho đẹp (Demo loop)
-          return { hours: 12, minutes: 0, seconds: 0 };
-        }
+        return { hours: 12, minutes: 0, seconds: 0 };
       });
     }, 1000);
 
@@ -86,8 +74,8 @@ const FlashSaleSection = () => {
 
   if (loading) {
     return (
-      <section className="py-12">
-        <div className="animate-pulse container mx-auto px-4">
+      <section className="py-12 bg-gray-50">
+        <div className="container mx-auto px-4 animate-pulse">
           <div className="h-8 bg-gray-200 rounded w-48 mb-8"></div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {[...Array(6)].map((_, i) => (
@@ -99,71 +87,70 @@ const FlashSaleSection = () => {
     );
   }
 
-  // Nếu vẫn không có sản phẩm nào thì ẩn section
-  if (products.length === 0) {
-    return null;
-  }
+  // Ẩn section nếu không có sản phẩm nào
+  if (products.length === 0) return null;
 
   return (
-    <section className="py-12 bg-gradient-to-r from-red-50 to-white">
+    <section className="py-12 bg-gradient-to-b from-red-50 to-white border-t border-red-100">
       <div className="container mx-auto px-4">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
             <h2 className="text-3xl font-bold text-gray-900 mb-2 flex items-center">
-              <span className="mr-2 text-red-600 animate-pulse">🔥</span> Flash
-              Sale
+              <span className="mr-2 text-red-600 animate-pulse text-4xl">
+                ⚡
+              </span>
+              FLASH SALE
             </h2>
-            <p className="text-gray-600">
-              Limited time offers. Hurry up before they're gone!
+            <p className="text-gray-500 text-sm md:text-base">
+              Nhanh tay săn deal sốc - Số lượng có hạn!
             </p>
           </div>
 
-          {/* Countdown Timer */}
-          <div className="mt-4 md:mt-0 bg-white border border-red-100 shadow-sm rounded-xl p-4">
-            <div className="flex items-center space-x-4">
-              <div className="text-center">
-                <div className="bg-red-600 text-white rounded p-2 min-w-[3rem]">
-                  <span className="text-xl font-bold">
-                    {timeLeft.hours.toString().padStart(2, "0")}
-                  </span>
+          {/* Countdown Timer UI */}
+          <div className="bg-white border border-red-100 shadow-sm rounded-xl p-4 flex items-center gap-3">
+            {["Giờ", "Phút", "Giây"].map((label, idx) => {
+              const val =
+                idx === 0
+                  ? timeLeft.hours
+                  : idx === 1
+                  ? timeLeft.minutes
+                  : timeLeft.seconds;
+              return (
+                <div key={label} className="text-center">
+                  <div className="bg-red-600 text-white rounded p-2 min-w-[3rem] text-xl font-bold">
+                    {String(val).padStart(2, "0")}
+                  </div>
+                  <div className="text-[10px] text-gray-500 mt-1 uppercase font-bold">
+                    {label}
+                  </div>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">Hrs</div>
-              </div>
-              <span className="text-2xl font-bold text-red-600 pb-6">:</span>
-              <div className="text-center">
-                <div className="bg-red-600 text-white rounded p-2 min-w-[3rem]">
-                  <span className="text-xl font-bold">
-                    {timeLeft.minutes.toString().padStart(2, "0")}
-                  </span>
-                </div>
-                <div className="text-xs text-gray-500 mt-1">Mins</div>
-              </div>
-              <span className="text-2xl font-bold text-red-600 pb-6">:</span>
-              <div className="text-center">
-                <div className="bg-red-600 text-white rounded p-2 min-w-[3rem]">
-                  <span className="text-xl font-bold">
-                    {timeLeft.seconds.toString().padStart(2, "0")}
-                  </span>
-                </div>
-                <div className="text-xs text-gray-500 mt-1">Secs</div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {products.map((product) => (
-            <ProductCard key={product._id || product.id} product={product} />
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          {products.map((product, index) => (
+            <ProductCard
+              key={product._id || index}
+              product={product}
+              // ✅ QUAN TRỌNG: Kích hoạt chế độ hiển thị Flash Sale cho ProductCard
+              isFlashSale={true}
+            />
           ))}
         </div>
 
         {/* View All Button */}
-        <div className="text-center mt-8">
-          <button className="inline-flex items-center space-x-2 bg-red-600 text-white px-8 py-3 rounded-full hover:bg-red-700 transition-all shadow-lg hover:shadow-xl font-medium transform hover:-translate-y-0.5">
-            <span>View All Flash Deals</span>
+        <div className="text-center mt-10">
+          <a
+            href="/flash-sale"
+            className="inline-flex items-center space-x-2 bg-white text-red-600 border border-red-600 px-8 py-3 rounded-full hover:bg-red-600 hover:text-white transition-all shadow-md hover:shadow-lg font-medium group"
+          >
+            <span>Xem tất cả Deal</span>
             <svg
-              className="w-5 h-5"
+              className="w-5 h-5 group-hover:translate-x-1 transition-transform"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -175,7 +162,7 @@ const FlashSaleSection = () => {
                 d="M17 8l4 4m0 0l-4 4m4-4H3"
               />
             </svg>
-          </button>
+          </a>
         </div>
       </div>
     </section>

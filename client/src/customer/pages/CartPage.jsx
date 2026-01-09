@@ -129,8 +129,8 @@ const CartPage = () => {
             </div>
           </div>
 
-          {/* Promo Code */}
-          <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          {/* 👇 ĐÃ ẨN PHẦN PROMO CODE VÌ CHƯA CÓ API 👇 */}
+          {/* <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold mb-4">Have a Promo Code?</h3>
             <div className="flex">
               <input
@@ -142,7 +142,9 @@ const CartPage = () => {
                 Apply
               </button>
             </div>
-          </div>
+          </div> 
+          */}
+          {/* 👆 KẾT THÚC PHẦN ẨN 👆 */}
         </div>
 
         {/* Order Summary */}

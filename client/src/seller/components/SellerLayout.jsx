@@ -2,15 +2,14 @@ import React, { useState } from "react";
 // 1. Import Outlet để hiển thị nội dung con
 import { Link, useNavigate, useLocation, Outlet } from "react-router-dom";
 // 2. Import useAuth để lấy thông tin user chuẩn từ Context
-import { useAuth } from "../../contexts/AuthContext"; // Kiểm tra đường dẫn import
+import { useAuth } from "../../contexts/AuthContext";
 
-// 3. Bỏ props { children } đi vì dùng Outlet
 const SellerLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // 4. Lấy user và hàm logout từ Context (Không tự check localStorage nữa)
+  // 4. Lấy user và hàm logout từ Context
   const { user, logout } = useAuth();
 
   const handleLogout = () => {
@@ -22,9 +21,14 @@ const SellerLayout = () => {
     { path: "/seller/dashboard", label: "Tổng Quan", icon: "📊" },
     { path: "/seller/products", label: "Sản Phẩm", icon: "🛍️" },
     { path: "/seller/orders", label: "Đơn Hàng", icon: "📦" },
+
+    // 👇👇👇 THÊM MỤC FLASH SALE VÀO ĐÂY 👇👇👇
+    { path: "/seller/flash-sales", label: "Flash Sale", icon: "⚡" },
+    // 👆👆👆 -------------------------------- 👆👆👆
+
     { path: "/seller/inventory", label: "Tồn Kho", icon: "📋" },
     { path: "/seller/finance", label: "Tài Chính", icon: "💰" },
-    // { path: "/seller/analytics", label: "Phân Tích", icon: "📈" }, // Mở lại khi có trang này
+    // { path: "/seller/analytics", label: "Phân Tích", icon: "📈" },
     { path: "/seller/shop", label: "Cửa Hàng", icon: "🏪" },
   ];
 
@@ -96,7 +100,6 @@ const SellerLayout = () => {
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6">
           {/* 👇 QUAN TRỌNG: Thay {children} bằng <Outlet /> */}
-          {/* Đây là nơi các trang con (Dashboard, Products...) sẽ hiển thị */}
           <Outlet />
         </main>
       </div>

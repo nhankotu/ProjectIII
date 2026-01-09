@@ -2,8 +2,15 @@ import React, { useState } from "react";
 
 const ProductGallery = ({ images }) => {
   const [selectedImage, setSelectedImage] = useState(0);
-  const [zoomPosition, setZoomPosition] = useState({ x: 0, y: 0 });
-  const [showZoom, setShowZoom] = useState(false);
+
+  // ✅ Hàm Helper xử lý đường dẫn ảnh (Giữ nguyên để tránh lỗi hiển thị)
+  const getImageUrl = (image) => {
+    if (!image) return "";
+    if (typeof image === "object" && image.url) {
+      return image.url;
+    }
+    return image;
+  };
 
   if (!images || images.length === 0) {
     return (
@@ -13,46 +20,24 @@ const ProductGallery = ({ images }) => {
     );
   }
 
-  const handleMouseMove = (e) => {
-    const { left, top, width, height } =
-      e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - left) / width) * 100;
-    const y = ((e.clientY - top) / height) * 100;
-    setZoomPosition({ x, y });
-  };
-
-  const mainImage = images[selectedImage];
+  // Lấy đường dẫn chuẩn cho ảnh đang chọn
+  const rawMainImage = images[selectedImage];
+  const mainImageUrl = getImageUrl(rawMainImage);
 
   return (
     <div className="space-y-4">
       {/* Main Image */}
       <div className="relative">
-        <div
-          className="bg-white border border-gray-200 rounded-xl overflow-hidden"
-          onMouseEnter={() => setShowZoom(true)}
-          onMouseLeave={() => setShowZoom(false)}
-          onMouseMove={handleMouseMove}
-        >
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex items-center justify-center">
+          {/* 👇 Đã xóa các sự kiện mouse và bỏ cursor-crosshair */}
           <img
-            src={mainImage}
+            src={mainImageUrl}
             alt="Product main"
-            className="w-full h-auto object-contain cursor-crosshair"
+            className="w-full h-auto object-contain"
             style={{ minHeight: "400px", maxHeight: "500px" }}
           />
 
-          {/* Zoom Preview */}
-          {showZoom && (
-            <div className="absolute top-0 right-0 w-64 h-64 border border-gray-300 bg-white overflow-hidden rounded-lg shadow-lg">
-              <div
-                className="w-full h-full bg-no-repeat"
-                style={{
-                  backgroundImage: `url(${mainImage})`,
-                  backgroundPosition: `${zoomPosition.x}% ${zoomPosition.y}%`,
-                  backgroundSize: "200%",
-                }}
-              />
-            </div>
-          )}
+          {/* ❌ Đã xóa phần Zoom Preview ở đây */}
         </div>
 
         {/* Image Badges */}
@@ -73,7 +58,7 @@ const ProductGallery = ({ images }) => {
                   (prev) => (prev - 1 + images.length) % images.length
                 )
               }
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:bg-white"
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors"
               aria-label="Previous image"
             >
               <svg
@@ -94,7 +79,7 @@ const ProductGallery = ({ images }) => {
               onClick={() =>
                 setSelectedImage((prev) => (prev + 1) % images.length)
               }
-              className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:bg-white"
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors"
               aria-label="Next image"
             >
               <svg
@@ -130,7 +115,7 @@ const ProductGallery = ({ images }) => {
               aria-label={`View image ${index + 1}`}
             >
               <img
-                src={image}
+                src={getImageUrl(image)}
                 alt={`Thumbnail ${index + 1}`}
                 className="w-full h-full object-cover"
               />
@@ -139,7 +124,7 @@ const ProductGallery = ({ images }) => {
         </div>
       )}
 
-      {/* Image Actions */}
+      {/* Image Actions - Giữ lại các nút chức năng này */}
       <div className="flex flex-wrap gap-3">
         <button className="flex items-center space-x-2 text-gray-600 hover:text-blue-600">
           <svg

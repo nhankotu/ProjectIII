@@ -3,10 +3,10 @@ import ProductCard from "../components/common/ProductCard";
 import { productService } from "../services/productService";
 
 const FlashSalePage = () => {
-  const [products, setProducts] = useState([]);
+  const [flashSaleItems, setFlashSaleItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Fake timer cho đẹp (chạy ngược từ 12h)
+  // Fake timer
   const [timeLeft, setTimeLeft] = useState({
     hours: 12,
     minutes: 0,
@@ -19,27 +19,30 @@ const FlashSalePage = () => {
         setLoading(true);
         const response = await productService.getFlashSaleProducts();
 
-        // Logic kiểm tra dữ liệu an toàn (như đã sửa ở các file trước)
-        let data = [];
-        if (response && Array.isArray(response.data)) {
-          data = response.data;
-        } else if (Array.isArray(response)) {
-          data = response;
-        } else if (response && Array.isArray(response.products)) {
-          data = response.products;
-        } else if (response?.success && Array.isArray(response.data)) {
-          data = response.data;
+        // 1. Kiểm tra cấu trúc dữ liệu trả về
+        const campaigns = response.data?.data || response.data || [];
+
+        let allProducts = [];
+
+        if (Array.isArray(campaigns) && campaigns.length > 0) {
+          // 2. Lấy sản phẩm từ bên trong các chiến dịch (FLATTEN)
+          allProducts = campaigns.flatMap((campaign) => {
+            return campaign.products || [];
+          });
         }
 
-        // Nếu không có dữ liệu thật, lấy tạm sản phẩm thường để test (Fallback)
-        if (data.length === 0) {
-          console.warn("Flash sale trống, lấy sản phẩm thường demo...");
-          const fallback = await productService.getFeaturedProducts();
-          if (fallback && Array.isArray(fallback.data)) data = fallback.data;
-          else if (Array.isArray(fallback)) data = fallback;
+        // 3. Fallback: Nếu không có Flash Sale nào, lấy sản phẩm thường demo
+        if (allProducts.length === 0) {
+          // console.warn("Flash sale trống, lấy sản phẩm thường demo...");
+          // const fallback = await productService.getFeaturedProducts();
+          // const fallbackData = fallback.data?.data || fallback.data || [];
+          // allProducts = Array.isArray(fallbackData) ? fallbackData : [];
+
+          // Tốt nhất là để trống để biết là không có Sale, thay vì hiện lung tung
+          allProducts = [];
         }
 
-        setProducts(data);
+        setFlashSaleItems(allProducts);
       } catch (error) {
         console.error("Lỗi tải trang Flash Sale:", error);
       } finally {
@@ -49,7 +52,6 @@ const FlashSalePage = () => {
 
     fetchFlashSaleProducts();
 
-    // Timer logic
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
@@ -67,7 +69,9 @@ const FlashSalePage = () => {
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-12 text-center">
-        <div className="animate-pulse">Đang tải Flash Sale...</div>
+        <div className="animate-pulse text-red-600 font-bold text-xl">
+          Đang tải Flash Sale...
+        </div>
       </div>
     );
   }
@@ -75,9 +79,9 @@ const FlashSalePage = () => {
   return (
     <div className="bg-red-50 min-h-screen pb-12">
       {/* Banner Header */}
-      <div className="bg-red-600 text-white py-12 mb-8">
+      <div className="bg-gradient-to-r from-red-600 to-red-800 text-white py-12 mb-8 shadow-lg">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl font-bold mb-4 animate-bounce">
+          <h1 className="text-4xl font-bold mb-4 animate-bounce drop-shadow-md">
             ⚡ FLASH SALE ⚡
           </h1>
           <p className="text-red-100 text-lg mb-6">
@@ -86,38 +90,49 @@ const FlashSalePage = () => {
 
           {/* Countdown Clock */}
           <div className="flex justify-center space-x-4">
-            <div className="bg-white text-red-600 rounded-lg p-3 w-20">
-              <div className="text-3xl font-bold">
-                {timeLeft.hours.toString().padStart(2, "0")}
-              </div>
-              <div className="text-xs">Giờ</div>
-            </div>
-            <div className="bg-white text-red-600 rounded-lg p-3 w-20">
-              <div className="text-3xl font-bold">
-                {timeLeft.minutes.toString().padStart(2, "0")}
-              </div>
-              <div className="text-xs">Phút</div>
-            </div>
-            <div className="bg-white text-red-600 rounded-lg p-3 w-20">
-              <div className="text-3xl font-bold">
-                {timeLeft.seconds.toString().padStart(2, "0")}
-              </div>
-              <div className="text-xs">Giây</div>
-            </div>
+            {["Giờ", "Phút", "Giây"].map((label, idx) => {
+              const val =
+                idx === 0
+                  ? timeLeft.hours
+                  : idx === 1
+                  ? timeLeft.minutes
+                  : timeLeft.seconds;
+              return (
+                <div
+                  key={label}
+                  className="bg-white text-red-600 rounded-lg p-3 w-20 shadow-md transform hover:scale-105 transition-transform"
+                >
+                  <div className="text-3xl font-bold font-mono">
+                    {val.toString().padStart(2, "0")}
+                  </div>
+                  <div className="text-xs font-medium uppercase">{label}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
 
       {/* Product List */}
       <div className="container mx-auto px-4">
-        {products.length === 0 ? (
-          <div className="text-center text-gray-500 py-12">
-            Chưa có chương trình Flash Sale nào.
+        {flashSaleItems.length === 0 ? (
+          <div className="bg-white rounded-xl p-12 text-center shadow-sm">
+            <span className="text-6xl mb-4 block">😭</span>
+            <h3 className="text-xl font-bold text-gray-700">Tiếc quá!</h3>
+            <p className="text-gray-500">
+              Hiện tại chưa có chương trình Flash Sale nào đang diễn ra.
+            </p>
+            <p className="text-gray-500">Vui lòng quay lại sau nhé.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {products.map((product) => (
-              <ProductCard key={product._id || product.id} product={product} />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+            {flashSaleItems.map((item, index) => (
+              <ProductCard
+                key={item._id || index}
+                product={item}
+                // ✅ QUAN TRỌNG: Bật chế độ hiển thị Flash Sale
+                isFlashSale={true}
+              />
             ))}
           </div>
         )}

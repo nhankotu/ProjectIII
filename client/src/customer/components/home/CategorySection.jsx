@@ -82,7 +82,7 @@ const CategorySection = () => {
             <Link
               // SỬA: Dùng _id (MongoDB) hoặc id
               key={category._id || category.id}
-              to={`/category/${category.slug}`}
+              to={`/products/${category.slug}`}
               className="group"
             >
               <div

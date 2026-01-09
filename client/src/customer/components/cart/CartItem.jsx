@@ -5,6 +5,23 @@ import { useCart } from "../../../contexts/CartContext";
 const CartItem = ({ item }) => {
   const { removeFromCart, updateQuantity } = useCart();
 
+  // ✅ 1. Hàm Helper: Lấy đường dẫn ảnh chuẩn (xử lý Object/String)
+  const getImageUrl = (imageData) => {
+    if (!imageData) return "";
+    // Nếu là object (từ Cloudinary/Backend) -> lấy field .url
+    if (typeof imageData === "object" && imageData.url) {
+      return imageData.url;
+    }
+    // Nếu là string -> giữ nguyên
+    return imageData;
+  };
+
+  // ✅ 2. Chọn ảnh để hiển thị (Ưu tiên Thumbnail > Ảnh đầu tiên > Ảnh đại diện)
+  const rawImage =
+    item.thumbnail || (item.images && item.images[0]) || item.image;
+  // Nếu không có ảnh nào thì dùng placeholder
+  const displayImage = getImageUrl(rawImage) || "/api/placeholder/100/100";
+
   const formatPrice = (price) => {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
@@ -31,9 +48,10 @@ const CartItem = ({ item }) => {
       <div className="flex items-start">
         {/* Product Image */}
         <Link to={`/product/${item.id}`} className="flex-shrink-0">
-          <div className="w-20 h-20 md:w-24 md:h-24 bg-gray-100 rounded-lg overflow-hidden">
+          <div className="w-20 h-20 md:w-24 md:h-24 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+            {/* ✅ 3. Sử dụng biến displayImage đã xử lý */}
             <img
-              src={item.image || "/api/placeholder/100/100"}
+              src={displayImage}
               alt={item.name}
               className="w-full h-full object-cover"
             />
