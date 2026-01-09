@@ -47,7 +47,7 @@ export const registerUser = async (req, res) => {
     const user = new User({
       username,
       email,
-      password: hashedPassword,
+      password: password,
       role: role || "customer",
       isActive: isActiveStatus,
     });
