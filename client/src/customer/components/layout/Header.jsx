@@ -1,26 +1,41 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react"; // Thêm useRef và useEffect
 import { Link, useNavigate } from "react-router-dom";
-// Kiểm tra lại đường dẫn này tùy theo cấu trúc thư mục của bạn
 import { useAuth } from "../../../contexts/AuthContext";
-import { useCart } from "../../../contexts/CartContext"; // Đã sửa lại cho đồng bộ ../
+import { useCart } from "../../../contexts/CartContext";
 import SearchBar from "../common/SearchBar";
 
 const Header = () => {
   const navigate = useNavigate();
-
-  // 1. SỬA: Chỉ lấy user và logout, không lấy isAuthenticated vì Context không trả về
   const { user, logout } = useAuth();
-
-  // 2. THÊM: Tự tạo biến isAuthenticated dựa trên user
   const isAuthenticated = !!user;
-
   const { cartCount } = useCart();
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // 1. THÊM: State để quản lý menu user (click để mở)
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  // 2. THÊM: Ref để xử lý click ra ngoài thì đóng menu
+  const userMenuRef = useRef(null);
 
   const handleLogout = () => {
     logout();
     navigate("/");
+    setIsUserMenuOpen(false); // Đóng menu khi logout
   };
+
+  // 3. THÊM: Hàm xử lý click ra ngoài để đóng menu user
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const navLinks = [
     { name: "Home", path: "/" },
@@ -81,10 +96,15 @@ const Header = () => {
               )}
             </Link>
 
-            {/* User Menu - Logic đã đúng nhờ biến isAuthenticated bên trên */}
+            {/* User Menu - SỬA LẠI LOGIC CLICK */}
             {isAuthenticated ? (
-              <div className="relative group">
-                <button className="flex items-center space-x-2 p-2">
+              // Thêm ref vào div bao ngoài
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  // 4. THÊM: Sự kiện onClick để đảo ngược trạng thái mở/đóng
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
                   <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                     <span className="text-blue-600 font-semibold">
                       {user?.name?.charAt(0) || "U"}
@@ -93,33 +113,54 @@ const Header = () => {
                   <span className="hidden md:inline text-gray-700">
                     {user?.name || "User"}
                   </span>
+                  {/* Thêm mũi tên nhỏ để chỉ thị đây là dropdown */}
+                  <svg
+                    className={`w-4 h-4 text-gray-500 transition-transform ${
+                      isUserMenuOpen ? "rotate-180" : ""
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M19 9l-7 7-7-7"
+                    ></path>
+                  </svg>
                 </button>
 
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                  <Link
-                    to="/account"
-                    className="block px-4 py-3 hover:bg-gray-100"
-                  >
-                    My Account
-                  </Link>
-                  <Link
-                    to="/orders"
-                    className="block px-4 py-3 hover:bg-gray-100"
-                  >
-                    My Orders
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="block w-full text-left px-4 py-3 text-red-600 hover:bg-gray-100"
-                  >
-                    Logout
-                  </button>
-                </div>
+                {/* 5. SỬA: Thay class group-hover bằng logic render theo state */}
+                {isUserMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50">
+                    <Link
+                      to="/account"
+                      className="block px-4 py-3 hover:bg-gray-100 text-sm text-gray-700"
+                      onClick={() => setIsUserMenuOpen(false)} // Đóng menu khi click link
+                    >
+                      My Account
+                    </Link>
+                    <Link
+                      to="/orders"
+                      className="block px-4 py-3 hover:bg-gray-100 text-sm text-gray-700"
+                      onClick={() => setIsUserMenuOpen(false)} // Đóng menu khi click link
+                    >
+                      My Orders
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-3 text-red-600 hover:bg-gray-100 text-sm"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <Link
                 to="/login"
-                className="inline-flex items-center space-x-2 border-2 border-blue-600 text-blue-600 px-8 py-3 rounded-full hover:bg-blue-500 transition-colors font-medium"
+                className="inline-flex items-center space-x-2 border-2 border-blue-600 text-blue-600 px-6 py-2 rounded-full hover:bg-blue-50 transition-colors font-medium text-sm"
               >
                 Login
               </Link>
@@ -147,6 +188,7 @@ const Header = () => {
           </div>
         </div>
 
+        {/* ... (Phần Mobile Search Bar và Mobile Menu giữ nguyên) ... */}
         {/* Mobile Search Bar */}
         <div className="md:hidden py-4">
           <SearchBar />
