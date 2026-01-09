@@ -4,7 +4,7 @@ import axios from "axios";
 // Nếu bạn dùng Vite thì dùng import.meta.env.VITE_API_URL
 // Nếu dùng Create React App thì dùng process.env.REACT_APP_API_URL
 // Hoặc hardcode localhost nếu đang dev
-const API_BASE_URL = "http://localhost:5000";
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 // 2. Tạo Axios Instance
 const apiClient = axios.create({
