@@ -59,7 +59,7 @@ const AdminLayout = () => {
         <div className="p-4 border-b border-slate-700 flex items-center justify-between h-16">
           {sidebarOpen && (
             <h1 className="text-xl font-bold tracking-tighter text-indigo-400">
-              GEMINI<span className="text-white">SHOP</span>
+              ADMIN
             </h1>
           )}
           <button
