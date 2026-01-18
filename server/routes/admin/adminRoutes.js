@@ -1,6 +1,7 @@
 import express from "express";
 import { createAdmin } from "../../controllers/admin/adminController.js";
 import { requireAuth, requireAdmin } from "../../middleware/authMiddleware.js";
+import { uploadForCloudinary } from "../../middleware/uploadMiddleware.js";
 import {
   getPendingFlashSales,
   approveFlashSale,
@@ -24,7 +25,13 @@ import {
   getAllUsers,
   unbanUser,
 } from "../../controllers/admin/userController.js";
+
+import multer from "multer";
+
 const router = express.Router();
+
+// 1. Cấu hình multer (Dùng memoryStorage để lấy buffer upload lên Cloudinary)
+const upload = multer({ storage: multer.memoryStorage() });
 
 // --- MIDDLEWARE ---
 router.use(requireAuth);
@@ -45,8 +52,12 @@ router.put("/flash-sales/reject/:id", rejectFlashSale);
 // ============================
 // 3. QUẢN LÝ CATEGORY (Thêm prefix /categories)
 // ============================
-// POST /api/admin/categories
-router.post("/categories", createCategory);
+
+router.post(
+  "/categories",
+  uploadForCloudinary, // Thêm nó vào đây để giải mã dữ liệu cho Admin
+  createCategory
+);
 
 // DELETE /api/admin/categories/:id
 router.delete("/categories/:id", deleteCategory);

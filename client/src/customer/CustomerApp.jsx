@@ -12,7 +12,7 @@ import CustomerLayout from "./components/layout/CustomerLayout";
 import HomePage from "./pages/HomePage";
 import ProductListingPage from "./pages/ProductListingPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
-import CategoriesPage from "./pages/CategoriesPage"; // <--- 1. IMPORT MỚI
+import CategoriesPage from "./pages/CategoriesPage";
 import FlashSalePage from "./pages/FlashSalePage";
 import SupportPage from "./pages/SupportPage";
 import CartPage from "./pages/CartPage";
@@ -21,6 +21,10 @@ import AccountPage from "./pages/AccountPage";
 import SearchResultsPage from "./pages/SearchResultsPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import WishlistPage from "./pages/WishlistPage";
+import AddressPage from "./pages/AddressPage";
+import OrderDetailPage from "./pages/OrderDetailPage"; // Thêm dòng này ở khu vực import
+// ✅ 1. IMPORT TRANG SHOP PAGE
+import ShopPage from "./pages/ShopPage";
 
 // Auth pages (global)
 import Login from "../global/pages/Login";
@@ -34,7 +38,6 @@ function CustomerApp() {
           <Routes>
             <Route path="/" element={<HomePage />} />
 
-            {/* <--- 2. THÊM ROUTE NÀY --- */}
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/flash-sale" element={<FlashSalePage />} />
             <Route path="/products" element={<ProductListingPage />} />
@@ -45,11 +48,17 @@ function CustomerApp() {
             />
             <Route path="/wishlist" element={<WishlistPage />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
+
+            {/* ✅ 2. THÊM ROUTE CHO SHOP TẠI ĐÂY */}
+            {/* :id sẽ hứng sellerId, ví dụ: /shop/65a1b2... */}
+            <Route path="/shop/:id" element={<ShopPage />} />
+
             <Route path="/cart" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/search" element={<SearchResultsPage />} />
             <Route path="/account" element={<AccountPage />} />
-
+            <Route path="/account/addresses" element={<AddressPage />} />
+            <Route path="/account/orders/:id" element={<OrderDetailPage />} />
             {/* Auth Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />

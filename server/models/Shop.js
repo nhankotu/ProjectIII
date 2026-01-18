@@ -3,23 +3,23 @@ import mongoose from "mongoose";
 
 const shopSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, unique: true }, // Tên Shop
+    name: { type: String, required: true, unique: true },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // Liên kết tới bảng User
+      ref: "User",
       required: true,
     },
     description: { type: String },
     logo: { type: String },
 
-    // Trạng thái duyệt của Admin sàn
+
     status: {
       type: String,
       enum: ["pending", "active", "rejected", "banned"],
-      default: "pending", // Mặc định là chờ Admin duyệt
+      default: "pending", 
     },
 
-    // Thông tin thanh toán của Seller (để Admin chuyển tiền)
+
     paymentInfo: {
       bankName: String,
       accountNumber: String,

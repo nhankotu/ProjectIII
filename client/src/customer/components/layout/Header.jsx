@@ -1,30 +1,34 @@
-import React, { useState, useEffect, useRef } from "react"; // Thêm useRef và useEffect
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { Link, NavLink, useNavigate } from "react-router-dom"; // Dùng NavLink để xử lý trạng thái Active
 import { useAuth } from "../../../contexts/AuthContext";
 import { useCart } from "../../../contexts/CartContext";
 import SearchBar from "../common/SearchBar";
+import {
+  ShoppingCart,
+  User,
+  ChevronDown,
+  LogOut,
+  Package,
+  UserCircle,
+  Menu,
+  X,
+} from "lucide-react"; // Dùng Lucide icon cho đồng bộ
 
 const Header = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const isAuthenticated = !!user;
   const { cartCount } = useCart();
-
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  // 1. THÊM: State để quản lý menu user (click để mở)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-
-  // 2. THÊM: Ref để xử lý click ra ngoài thì đóng menu
   const userMenuRef = useRef(null);
 
   const handleLogout = () => {
     logout();
     navigate("/");
-    setIsUserMenuOpen(false); // Đóng menu khi logout
+    setIsUserMenuOpen(false);
   };
 
-  // 3. THÊM: Hàm xử lý click ra ngoài để đóng menu user
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
@@ -32,204 +36,215 @@ const Header = () => {
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const navLinks = [
-    { name: "Home", path: "/" },
-    { name: "Products", path: "/products" },
-    { name: "Categories", path: "/categories" },
+    { name: "Trang chủ", path: "/" },
+    { name: "Sản phẩm", path: "/products" },
+    { name: "Danh mục", path: "/categories" },
     { name: "Flash Sale", path: "/flash-sale" },
-    { name: "Support", path: "/support" },
+    { name: "Hỗ trợ", path: "/support" },
   ];
 
   return (
-    <header className="bg-white shadow-md sticky top-0 z-50">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center">
-            <span className="text-2xl font-bold text-blue-600">NTShop</span>
+    <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-gray-100">
+      <div className="container mx-auto px-4 lg:px-8">
+        <div className="flex items-center justify-between h-20">
+          {/* Logo - Thiết kế lại đậm nét hơn */}
+          <Link to="/" className="flex items-center space-x-2 group">
+            <div className="bg-blue-600 p-1.5 rounded-lg group-hover:rotate-6 transition-transform">
+              <span className="text-white font-black text-xl italic tracking-tighter">
+                NT
+              </span>
+            </div>
+            <span className="text-2xl font-extrabold tracking-tight text-gray-900 group-hover:text-blue-600 transition-colors">
+              Shop<span className="text-blue-600">.</span>
+            </span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
+          {/* Desktop Navigation - Tối ưu Typography */}
+          <nav className="hidden lg:flex items-center space-x-1">
             {navLinks.map((link) => (
-              <Link
+              <NavLink
                 key={link.name}
                 to={link.path}
-                className="text-gray-700 hover:text-blue-600 transition-colors"
+                className={({ isActive }) => `
+                  px-4 py-2 text-[15px] font-medium rounded-full transition-all duration-200
+                  ${
+                    isActive
+                      ? "text-blue-600 bg-blue-50"
+                      : "text-gray-600 hover:text-blue-600 hover:bg-gray-50"
+                  }
+                `}
               >
                 {link.name}
-              </Link>
+              </NavLink>
             ))}
           </nav>
 
-          {/* Search Bar */}
-          <div className="hidden md:block flex-1 max-w-md mx-4">
+          {/* Search Bar - Bo tròn mềm mại hơn */}
+          <div className="hidden xl:block flex-1 max-w-sm mx-8">
             <SearchBar />
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center space-x-4">
-            {/* Cart */}
-            <Link to="/cart" className="relative p-2">
-              <svg
-                className="w-6 h-6 text-gray-700"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-                />
-              </svg>
+          {/* Actions Group */}
+          <div className="flex items-center space-x-2 md:space-x-5">
+            {/* Cart - Thiết kế Badge nổi bật */}
+            <Link
+              to="/cart"
+              className="relative p-2.5 text-gray-600 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-all group"
+            >
+              <ShoppingCart size={24} strokeWidth={1.5} />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                <span className="absolute top-1 right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center ring-2 ring-white animate-in zoom-in">
                   {cartCount}
                 </span>
               )}
             </Link>
 
-            {/* User Menu - SỬA LẠI LOGIC CLICK */}
+            {/* User Menu - Thiết kế cao cấp hơn */}
             {isAuthenticated ? (
-              // Thêm ref vào div bao ngoài
               <div className="relative" ref={userMenuRef}>
                 <button
-                  // 4. THÊM: Sự kiện onClick để đảo ngược trạng thái mở/đóng
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  className="flex items-center space-x-2 pl-2 pr-3 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded-full transition-all"
                 >
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-blue-600 font-semibold">
-                      {user?.name?.charAt(0) || "U"}
-                    </span>
+                  <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-sm">
+                    {user?.avatar ? (
+                      <img
+                        src={user.avatar}
+                        alt="avatar"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
+                        {user?.name?.charAt(0).toUpperCase()}
+                      </div>
+                    )}
                   </div>
-                  <span className="hidden md:inline text-gray-700">
-                    {user?.name || "User"}
+                  <span className="hidden md:inline text-sm font-semibold text-gray-700">
+                    {user?.name?.split(" ").pop()}
                   </span>
-                  {/* Thêm mũi tên nhỏ để chỉ thị đây là dropdown */}
-                  <svg
-                    className={`w-4 h-4 text-gray-500 transition-transform ${
+                  <ChevronDown
+                    size={14}
+                    className={`text-gray-400 transition-transform duration-300 ${
                       isUserMenuOpen ? "rotate-180" : ""
                     }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M19 9l-7 7-7-7"
-                    ></path>
-                  </svg>
+                  />
                 </button>
 
-                {/* 5. SỬA: Thay class group-hover bằng logic render theo state */}
+                {/* Dropdown menu thiết kế lại */}
                 {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50">
+                  <div className="absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
+                    <div className="px-4 py-3 border-b border-gray-50 mb-1">
+                      <p className="text-xs text-gray-400">Tài khoản</p>
+                      <p className="text-sm font-bold text-gray-800 truncate">
+                        {user?.name}
+                      </p>
+                    </div>
                     <Link
                       to="/account"
-                      className="block px-4 py-3 hover:bg-gray-100 text-sm text-gray-700"
-                      onClick={() => setIsUserMenuOpen(false)} // Đóng menu khi click link
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center space-x-3 px-4 py-2.5 hover:bg-blue-50 text-sm text-gray-600 hover:text-blue-600 transition-colors"
                     >
-                      My Account
+                      <UserCircle size={18} /> <span>Hồ sơ của tôi</span>
                     </Link>
                     <Link
-                      to="/orders"
-                      className="block px-4 py-3 hover:bg-gray-100 text-sm text-gray-700"
-                      onClick={() => setIsUserMenuOpen(false)} // Đóng menu khi click link
+                      to="/account"
+                      state={{ activeTab: "orders" }}
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center space-x-3 px-4 py-2.5 hover:bg-blue-50 text-sm text-gray-600 hover:text-blue-600 transition-colors"
                     >
-                      My Orders
+                      <Package size={18} /> <span>Đơn hàng đã mua</span>
                     </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="block w-full text-left px-4 py-3 text-red-600 hover:bg-gray-100 text-sm"
-                    >
-                      Logout
-                    </button>
+                    <div className="border-t border-gray-50 mt-1 pt-1">
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center space-x-3 w-full px-4 py-2.5 text-red-500 hover:bg-red-50 text-sm font-medium transition-colors"
+                      >
+                        <LogOut size={18} /> <span>Đăng xuất</span>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
             ) : (
               <Link
                 to="/login"
-                className="inline-flex items-center space-x-2 border-2 border-blue-600 text-blue-600 px-6 py-2 rounded-full hover:bg-blue-50 transition-colors font-medium text-sm"
+                style={{
+                  backgroundColor: "#2563EB", // blue-600
+                  color: "#FFFFFF",
+                  opacity: 1,
+                }}
+                className="
+    px-8 py-3
+    rounded-full
+    font-semibold
+    shadow-lg
+    active:scale-95
+  "
               >
-                Login
+                Đăng nhập
               </Link>
             )}
 
-            {/* Mobile Menu Button */}
+            {/* Mobile Menu Toggle */}
             <button
-              className="md:hidden p-2"
+              className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
+              {mobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
             </button>
           </div>
         </div>
+      </div>
 
-        {/* ... (Phần Mobile Search Bar và Mobile Menu giữ nguyên) ... */}
-        {/* Mobile Search Bar */}
-        <div className="md:hidden py-4">
-          <SearchBar />
-        </div>
-
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden border-t mt-2 py-4">
-            <div className="flex flex-col space-y-3">
+      {/* Mobile Sidebar - Cải tiến đẹp hơn */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden fixed inset-0 z-[60] bg-white animate-in slide-in-from-right">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-10">
+              <span className="text-2xl font-black text-blue-600 italic">
+                NTShop
+              </span>
+              <button onClick={() => setMobileMenuOpen(false)}>
+                <X size={32} />
+              </button>
+            </div>
+            <nav className="flex flex-col space-y-6">
               {navLinks.map((link) => (
-                <Link
+                <NavLink
                   key={link.name}
                   to={link.path}
-                  className="text-gray-700 hover:text-blue-600 py-2"
                   onClick={() => setMobileMenuOpen(false)}
+                  className="text-2xl font-bold text-gray-800 hover:text-blue-600"
                 >
                   {link.name}
-                </Link>
+                </NavLink>
               ))}
               {!isAuthenticated && (
-                <>
+                <div className="pt-6 space-y-4 flex flex-col">
                   <Link
                     to="/login"
-                    className="text-blue-600 py-2"
+                    className="text-center py-4 bg-blue-600 text-white rounded-2xl font-bold"
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    Login
+                    Đăng nhập
                   </Link>
                   <Link
                     to="/register"
-                    className="text-blue-600 py-2"
+                    className="text-center py-4 bg-gray-100 text-gray-800 rounded-2xl font-bold"
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    Register
+                    Đăng ký
                   </Link>
-                </>
+                </div>
               )}
-            </div>
+            </nav>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </header>
   );
 };

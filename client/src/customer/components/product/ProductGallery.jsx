@@ -1,132 +1,112 @@
 import React, { useState } from "react";
 
-const ProductGallery = ({ images }) => {
-  const [selectedImage, setSelectedImage] = useState(0);
+const ProductGallery = ({ images, video }) => {
+  // ✅ Quản lý media đang được chọn: { type: 'image' | 'video', index: number }
+  const [activeMedia, setActiveMedia] = useState({ type: "image", index: 0 });
 
-  // ✅ Hàm Helper xử lý đường dẫn ảnh (Giữ nguyên để tránh lỗi hiển thị)
   const getImageUrl = (image) => {
     if (!image) return "";
-    if (typeof image === "object" && image.url) {
-      return image.url;
-    }
+    if (typeof image === "object" && image.url) return image.url;
     return image;
   };
 
-  if (!images || images.length === 0) {
+  if ((!images || images.length === 0) && !video?.url) {
     return (
       <div className="bg-gray-100 rounded-xl h-96 flex items-center justify-center">
-        <span className="text-gray-400">No image available</span>
+        <span className="text-gray-400">No media available</span>
       </div>
     );
   }
 
-  // Lấy đường dẫn chuẩn cho ảnh đang chọn
-  const rawMainImage = images[selectedImage];
-  const mainImageUrl = getImageUrl(rawMainImage);
+  // Lấy URL hiển thị cho phần Main
+  const mainMediaUrl =
+    activeMedia.type === "video"
+      ? video.url
+      : getImageUrl(images[activeMedia.index]);
 
   return (
     <div className="space-y-4">
-      {/* Main Image */}
+      {/* --- Main Display (Image or Video) --- */}
       <div className="relative">
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex items-center justify-center">
-          {/* 👇 Đã xóa các sự kiện mouse và bỏ cursor-crosshair */}
-          <img
-            src={mainImageUrl}
-            alt="Product main"
-            className="w-full h-auto object-contain"
-            style={{ minHeight: "400px", maxHeight: "500px" }}
-          />
-
-          {/* ❌ Đã xóa phần Zoom Preview ở đây */}
-        </div>
-
-        {/* Image Badges */}
-        <div className="absolute top-4 left-4 flex flex-col space-y-2">
-          {images.length > 1 && (
-            <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-              {selectedImage + 1}/{images.length}
-            </div>
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex items-center justify-center min-h-[400px] max-h-[500px]">
+          {activeMedia.type === "video" ? (
+            <video
+              src={mainMediaUrl}
+              controls
+              autoPlay
+              muted
+              className="w-full h-full object-contain max-h-[500px]"
+            />
+          ) : (
+            <img
+              src={mainMediaUrl}
+              alt="Product main"
+              className="w-full h-auto object-contain"
+            />
           )}
         </div>
 
-        {/* Navigation Arrows */}
-        {images.length > 1 && (
-          <>
-            <button
-              onClick={() =>
-                setSelectedImage(
-                  (prev) => (prev - 1 + images.length) % images.length
-                )
-              }
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors"
-              aria-label="Previous image"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-            </button>
-            <button
-              onClick={() =>
-                setSelectedImage((prev) => (prev + 1) % images.length)
-              }
-              className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors"
-              aria-label="Next image"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </button>
-          </>
-        )}
+        {/* Badge hiển thị vị trí */}
+        <div className="absolute top-4 left-4">
+          <div className="bg-black/50 backdrop-blur-md text-white px-3 py-1 rounded-full text-xs font-medium">
+            {activeMedia.type === "video"
+              ? "Video"
+              : `Ảnh ${activeMedia.index + 1}/${images.length}`}
+          </div>
+        </div>
       </div>
 
-      {/* Thumbnail Gallery */}
-      {images.length > 1 && (
-        <div className="flex space-x-3 overflow-x-auto pb-2">
-          {images.map((image, index) => (
-            <button
-              key={index}
-              onClick={() => setSelectedImage(index)}
-              className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
-                selectedImage === index
-                  ? "border-blue-600 ring-2 ring-blue-100"
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
-              aria-label={`View image ${index + 1}`}
-            >
-              <img
-                src={getImageUrl(image)}
-                alt={`Thumbnail ${index + 1}`}
-                className="w-full h-full object-cover"
-              />
-            </button>
-          ))}
-        </div>
-      )}
+      {/* --- Thumbnail Gallery --- */}
+      <div className="flex space-x-3 overflow-x-auto pb-2">
+        {/* Thumbnail của Video (nếu có) */}
+        {video?.url && (
+          <button
+            onClick={() => setActiveMedia({ type: "video", index: 0 })}
+            className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 relative transition-all ${
+              activeMedia.type === "video"
+                ? "border-blue-600 ring-2 ring-blue-100"
+                : "border-gray-200"
+            }`}
+          >
+            <video
+              src={video.url}
+              className="w-full h-full object-cover opacity-70"
+            />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+              <svg
+                className="w-8 h-8 text-white shadow-sm"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168l4.2 2.402a.5.5 0 010 .86l-4.2 2.402A.5.5 0 019 12.402V7.598a.5.5 0 01.755-.43z" />
+              </svg>
+            </div>
+          </button>
+        )}
 
-      {/* Image Actions - Giữ lại các nút chức năng này */}
-      <div className="flex flex-wrap gap-3">
-        <button className="flex items-center space-x-2 text-gray-600 hover:text-blue-600">
+        {/* Thumbnail của các Ảnh */}
+        {images.map((image, index) => (
+          <button
+            key={index}
+            onClick={() => setActiveMedia({ type: "image", index })}
+            className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
+              activeMedia.type === "image" && activeMedia.index === index
+                ? "border-blue-600 ring-2 ring-blue-100"
+                : "border-gray-200"
+            }`}
+          >
+            <img
+              src={getImageUrl(image)}
+              alt={`Thumbnail ${index + 1}`}
+              className="w-full h-full object-cover"
+            />
+          </button>
+        ))}
+      </div>
+
+      {/* --- Action Buttons --- */}
+      <div className="flex flex-wrap gap-4 pt-2 border-t">
+        <button className="flex items-center space-x-2 text-sm text-gray-600 hover:text-blue-600 transition-colors">
           <svg
             className="w-5 h-5"
             fill="none"
@@ -137,36 +117,12 @@ const ProductGallery = ({ images }) => {
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
-              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
             />
           </svg>
-          <span className="text-sm">View Fullscreen</span>
+          <span>Fullscreen</span>
         </button>
-
-        <button className="flex items-center space-x-2 text-gray-600 hover:text-blue-600">
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-            />
-          </svg>
-          <span className="text-sm">Download</span>
-        </button>
-
-        <button className="flex items-center space-x-2 text-gray-600 hover:text-blue-600">
+        <button className="flex items-center space-x-2 text-sm text-gray-600 hover:text-blue-600 transition-colors">
           <svg
             className="w-5 h-5"
             fill="none"
@@ -180,7 +136,7 @@ const ProductGallery = ({ images }) => {
               d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
             />
           </svg>
-          <span className="text-sm">Share</span>
+          <span>Share</span>
         </button>
       </div>
     </div>

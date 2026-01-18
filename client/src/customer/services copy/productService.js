@@ -8,6 +8,18 @@ export const productService = {
   getProductById: (id) => {
     return apiClient.get(`/api/products/${id}`);
   },
+  getPublicShopInfo: (sellerId) => {
+    return apiClient.get(`/api/shop/${sellerId}`);
+  },
+
+  getRelatedProducts: (categoryId) => {
+    return apiClient.get("/api/products", {
+      params: {
+        category: categoryId,
+        limit: 5,
+      },
+    });
+  },
 
   getFeaturedProducts: () => {
     return apiClient.get("/api/products/featured");

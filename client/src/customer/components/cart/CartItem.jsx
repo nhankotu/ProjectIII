@@ -2,54 +2,49 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useCart } from "../../../contexts/CartContext";
 
-const CartItem = ({ item }) => {
+// Nhận thêm props: isSelected và onSelect
+const CartItem = ({ item, isSelected, onSelect }) => {
   const { removeFromCart, updateQuantity } = useCart();
+  const productId = item.productId || item._id || item.id;
 
-  // ✅ 1. Hàm Helper: Lấy đường dẫn ảnh chuẩn (xử lý Object/String)
   const getImageUrl = (imageData) => {
     if (!imageData) return "";
-    // Nếu là object (từ Cloudinary/Backend) -> lấy field .url
-    if (typeof imageData === "object" && imageData.url) {
-      return imageData.url;
-    }
-    // Nếu là string -> giữ nguyên
+    if (typeof imageData === "object" && imageData.url) return imageData.url;
     return imageData;
   };
 
-  // ✅ 2. Chọn ảnh để hiển thị (Ưu tiên Thumbnail > Ảnh đầu tiên > Ảnh đại diện)
-  const rawImage =
-    item.thumbnail || (item.images && item.images[0]) || item.image;
-  // Nếu không có ảnh nào thì dùng placeholder
-  const displayImage = getImageUrl(rawImage) || "/api/placeholder/100/100";
+  const displayImage =
+    getImageUrl(
+      item.thumbnail || (item.images && item.images[0]) || item.image
+    ) || "https://via.placeholder.com/100";
+  const itemTotal = (item.price || 0) * item.quantity;
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("vi-VN", {
+  const formatPrice = (price) =>
+    new Intl.NumberFormat("vi-VN", {
       style: "currency",
       currency: "VND",
-    }).format(price);
-  };
-
-  const handleQuantityChange = (newQuantity) => {
-    if (newQuantity >= 1 && newQuantity <= 99) {
-      updateQuantity(item.id, newQuantity);
-    }
-  };
-
-  const handleRemove = () => {
-    if (window.confirm("Are you sure you want to remove this item?")) {
-      removeFromCart(item.id);
-    }
-  };
-
-  const itemTotal = item.price * item.quantity;
+    }).format(price || 0);
 
   return (
-    <div className="p-4 hover:bg-gray-50 transition-colors">
-      <div className="flex items-start">
-        {/* Product Image */}
-        <Link to={`/product/${item.id}`} className="flex-shrink-0">
+    <div
+      className={`p-4 transition-colors border-b last:border-b-0 ${
+        isSelected ? "bg-blue-50" : "hover:bg-gray-50"
+      }`}
+    >
+      <div className="flex items-center">
+        {/* ✅ 1. CHECKBOX CHỌN SẢN PHẨM */}
+        <div className="mr-4 flex-shrink-0">
+          <input
+            type="checkbox"
+            checked={isSelected || false}
+            onChange={onSelect}
+            className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+          />
+        </div>
+
+        {/* Ảnh */}
+        <Link to={`/product/${productId}`} className="flex-shrink-0">
           <div className="w-20 h-20 md:w-24 md:h-24 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-            {/* ✅ 3. Sử dụng biến displayImage đã xử lý */}
             <img
               src={displayImage}
               alt={item.name}
@@ -58,141 +53,91 @@ const CartItem = ({ item }) => {
           </div>
         </Link>
 
-        {/* Product Info */}
-        <div className="ml-4 flex-grow">
-          <div className="flex justify-between">
-            <div>
-              <Link
-                to={`/product/${item.id}`}
-                className="font-medium text-gray-900 hover:text-blue-600 transition-colors"
-              >
-                {item.name}
-              </Link>
-
-              {/* Variant Info */}
-              {item.variant && (
-                <div className="mt-1 text-sm text-gray-600">
-                  <span className="capitalize">{item.variant.type}: </span>
-                  <span className="font-medium">{item.variant.value}</span>
-                </div>
-              )}
-
-              {/* Stock Status */}
-              <div className="mt-1">
-                <span
-                  className={`text-sm ${
-                    item.stock > 0 ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {item.stock > 0 ? "In Stock" : "Out of Stock"}
-                </span>
+        {/* Thông tin */}
+        <div className="ml-4 flex-grow grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+          {/* Tên & Variant (Chiếm 5 phần) */}
+          <div className="md:col-span-5">
+            <Link
+              to={`/product/${productId}`}
+              className="font-medium text-gray-900 hover:text-blue-600 line-clamp-2"
+            >
+              {item.name}
+            </Link>
+            {item.variant && (
+              <div className="mt-1 text-sm text-gray-600">
+                <span className="capitalize">{item.variant.type}: </span>
+                <span className="font-medium">{item.variant.value}</span>
               </div>
-            </div>
+            )}
+            <div className="mt-1 text-xs text-gray-500">Kho: {item.stock}</div>
+          </div>
 
-            {/* Mobile: Price & Remove */}
-            <div className="md:hidden flex flex-col items-end">
-              <span className="font-bold text-gray-900">
-                {formatPrice(item.price)}
+          {/* Giá (Chiếm 2 phần - Ẩn trên mobile) */}
+          <div className="hidden md:block md:col-span-2 text-center font-medium text-gray-900">
+            {formatPrice(item.price)}
+          </div>
+
+          {/* Số lượng (Chiếm 2 phần) */}
+          <div className="md:col-span-2 flex items-center justify-center">
+            <div className="flex items-center border border-gray-300 rounded-lg">
+              <button
+                onClick={() => updateQuantity(productId, item.quantity - 1)}
+                disabled={item.quantity <= 1}
+                className="px-2 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+              >
+                −
+              </button>
+              <span className="px-2 w-8 text-center text-sm font-medium">
+                {item.quantity}
               </span>
               <button
-                onClick={handleRemove}
-                className="mt-2 text-red-600 hover:text-red-700"
+                onClick={() => updateQuantity(productId, item.quantity + 1)}
+                disabled={item.quantity >= 99}
+                className="px-2 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
+                +
               </button>
             </div>
           </div>
 
-          {/* Quantity Controls */}
-          <div className="mt-4 flex items-center justify-between">
-            <div className="flex items-center">
-              <button
-                onClick={() => handleQuantityChange(item.quantity - 1)}
-                disabled={item.quantity <= 1}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg border ${
-                  item.quantity <= 1
-                    ? "border-gray-300 text-gray-300 cursor-not-allowed"
-                    : "border-gray-300 text-gray-600 hover:bg-gray-100"
-                }`}
+          {/* Thành tiền (Chiếm 2 phần - Ẩn trên mobile) */}
+          <div className="hidden md:block md:col-span-2 text-center font-bold text-indigo-600">
+            {formatPrice(itemTotal)}
+          </div>
+
+          {/* Nút xóa (Chiếm 1 phần) */}
+          <div className="md:col-span-1 text-right md:text-center">
+            <button
+              onClick={() => removeFromCart(productId)}
+              className="text-gray-400 hover:text-red-600 p-2"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
               >
-                <span className="text-lg">−</span>
-              </button>
-
-              <input
-                type="number"
-                min="1"
-                max="99"
-                value={item.quantity}
-                onChange={(e) =>
-                  handleQuantityChange(parseInt(e.target.value) || 1)
-                }
-                className="w-12 h-8 text-center border-y border-gray-300 focus:outline-none"
-              />
-
-              <button
-                onClick={() => handleQuantityChange(item.quantity + 1)}
-                disabled={item.quantity >= 99}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg border ${
-                  item.quantity >= 99
-                    ? "border-gray-300 text-gray-300 cursor-not-allowed"
-                    : "border-gray-300 text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                <span className="text-lg">+</span>
-              </button>
-
-              <button
-                onClick={handleRemove}
-                className="ml-4 text-sm text-red-600 hover:text-red-700 md:hidden"
-              >
-                Remove
-              </button>
-            </div>
-
-            {/* Desktop: Price & Total */}
-            <div className="hidden md:flex items-center space-x-8">
-              <span className="w-24 text-center font-medium text-gray-900">
-                {formatPrice(item.price)}
-              </span>
-
-              <span className="w-24 text-center font-bold text-gray-900">
-                {formatPrice(itemTotal)}
-              </span>
-
-              <button
-                onClick={handleRemove}
-                className="text-red-600 hover:text-red-700"
-                title="Remove item"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-              </button>
-            </div>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+            </button>
           </div>
         </div>
+      </div>
+
+      {/* Mobile Price View */}
+      <div className="md:hidden mt-2 flex justify-between items-center pl-9">
+        <span className="text-gray-500 text-sm">
+          Đơn giá: {formatPrice(item.price)}
+        </span>
+        <span className="font-bold text-indigo-600">
+          {formatPrice(itemTotal)}
+        </span>
       </div>
     </div>
   );

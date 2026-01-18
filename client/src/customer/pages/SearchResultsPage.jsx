@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { productService } from "../services/productService";
-import ProductCard from "../components/common/ProductCard";
+import { productAPI as productService, cartAPI } from "../services/api";
+import ProductCard from "../components/product/ProductCard";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import EmptyState from "../components/common/EmptyState";
 import SearchBar from "../components/common/SearchBar";

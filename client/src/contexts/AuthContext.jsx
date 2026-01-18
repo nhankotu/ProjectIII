@@ -4,9 +4,10 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useCallback,
 } from "react";
 import PropTypes from "prop-types";
-import apiClient, { userAPI } from "../customer/services/api"; // Đảm bảo đường dẫn đúng
+import apiClient, { userAPI } from "../customer/services/api";
 
 export const AuthContext = createContext();
 
@@ -23,69 +24,86 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Hàm lấy profile (dùng khi F5 trang)
+  // 1. Cập nhật User State & LocalStorage
+  const updateUser = useCallback((userData) => {
+    setUser((prevUser) => {
+      // Đảm bảo lấy đúng object user nếu backend bọc nó
+      const cleanData = userData.user || userData;
+      const newUser = { ...prevUser, ...cleanData };
+      localStorage.setItem("user", JSON.stringify(newUser));
+      return newUser;
+    });
+  }, []);
+
+  // 2. Hàm lấy profile khi reload (F5)
   const fetchUserProfile = async () => {
     try {
       const response = await userAPI.getProfile();
-      // Kiểm tra cấu trúc trả về, userAPI thường trả về { data: user } hoặc user trực tiếp
-      const userData = response.data || response;
-      setUser(userData);
+
+      // 🔥 SỬA: Bóc tách đúng object user từ response của Axios
+      // Nếu backend trả về { success: true, user: {...} }
+      // hoặc trả về trực tiếp {...}
+      const userData =
+        response.user || response.data?.user || response.data || response;
+
+      if (userData && (userData._id || userData.id)) {
+        setUser(userData);
+        localStorage.setItem("user", JSON.stringify(userData));
+      }
       return userData;
     } catch (error) {
       console.error("Lỗi lấy thông tin user:", error);
-      logout();
+      // Chỉ logout nếu thực sự lỗi 401 hoặc 403 (Token hỏng)
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        logout();
+      }
     }
   };
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+    const savedUser = localStorage.getItem("user");
+
     if (token) {
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+        } catch (e) {
+          localStorage.removeItem("user");
+        }
+      }
+      // Fetch bản mới nhất từ server để cập nhật lại state
       fetchUserProfile().finally(() => setLoading(false));
     } else {
       setLoading(false);
     }
   }, []);
 
-  // --- HÀM LOGIN ĐÃ SỬA ---
   const login = async (username, password) => {
     try {
       setLoading(true);
       setError(null);
-
-      // 1. Gọi API Login
       const response = await apiClient.post("/api/users/login", {
         username,
         password,
       });
 
-      // 2. Lấy dữ liệu từ response (Backend trả về: token, user, redirectTo)
-      // Lưu ý: apiClient (axios) thường trả dữ liệu trong response.data,
-      // nhưng nếu bạn đã cấu hình interceptor để return response.data thì dùng trực tiếp 'response'
       const data = response.data || response;
-
       const token = data.token || data.accessToken;
-      const userData = data.user; // Backend trả về object user
-      const redirectTo = data.redirectTo; // Backend trả về đường dẫn gợi ý
+      const userData = data.user;
+      const redirectTo = data.redirectTo;
 
       if (!token) throw new Error("Không tìm thấy token!");
 
-      // 3. Lưu token & cập nhật State ngay lập tức
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(userData));
       setUser(userData);
 
-      // 4. ✅ QUAN TRỌNG: Return dữ liệu ra để Login.jsx sử dụng
-      return {
-        success: true,
-        user: userData, // Để Login.jsx check role
-        redirectTo: redirectTo, // Để Login.jsx navigate theo backend
-      };
+      return { success: true, user: userData, redirectTo };
     } catch (err) {
       const message =
         err.response?.data?.message || err.message || "Đăng nhập thất bại";
       setError(message);
-
-      // Return lỗi để Login.jsx hiển thị
       return { success: false, error: message };
     } finally {
       setLoading(false);
@@ -96,7 +114,8 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     setUser(null);
-    window.location.href = "/";
+    // Dùng window.location để xóa sạch state cũ của toàn app
+    window.location.href = "/login";
   };
 
   const value = useMemo(
@@ -106,11 +125,10 @@ export const AuthProvider = ({ children }) => {
       error,
       login,
       logout,
+      updateUser,
       isAuthenticated: !!user,
     }),
-    [user, loading, error]
-    // Lưu ý: Bỏ login/logout khỏi dependency array nếu ko dùng useCallback,
-    // tránh re-render ko cần thiết, hoặc user/loading thay đổi là đủ trigger rồi.
+    [user, loading, error, updateUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -186,7 +186,7 @@ const SellerDashboard = () => {
           )}
         </div>
 
-        {/* Top Products */}
+        {/* Top Products Section */}
         <div className="bg-white rounded-xl shadow-md p-4 md:p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg md:text-xl font-semibold text-gray-800">
@@ -194,66 +194,57 @@ const SellerDashboard = () => {
             </h2>
             {dashboardData.topProducts.length > 0 && (
               <button
-                onClick={() => handleQuickAction("add-product")}
-                className="text-sm text-green-600 hover:text-green-700 font-medium"
+                onClick={() => handleQuickAction("view-all-products")}
+                className="text-xs text-green-600 hover:text-green-700 font-bold"
               >
-                Quản lý sản phẩm →
+                Tất cả →
               </button>
             )}
           </div>
 
-          {dashboardData.topProducts.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="text-gray-400 text-3xl mb-2">📦</div>
-              <p className="text-gray-500">Chưa có sản phẩm bán chạy</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {dashboardData.topProducts.map((product, index) => (
-                <div
-                  key={product.id || index}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-center flex-1">
-                    {/* Product Image */}
-                    {product.image && (
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="w-10 h-10 object-cover rounded-lg mr-3"
-                        onError={(e) => {
-                          e.target.style.display = "none";
-                        }}
-                      />
-                    )}
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900 truncate">
-                        {product.name}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {product.sales} lượt bán
-                        {product.stock > 0 && (
-                          <span className="ml-2">
-                            • Còn {product.stock} sản phẩm
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-green-600 whitespace-nowrap">
-                      {formatCurrency(product.revenue)}
-                    </p>
-                    {product.price > 0 && (
-                      <p className="text-xs text-gray-500">
-                        {formatCurrency(product.price)}/sản phẩm
-                      </p>
-                    )}
-                  </div>
+          <div className="space-y-4">
+            {dashboardData.topProducts.map((product, index) => (
+              <div
+                key={product.id || index}
+                className="flex items-center p-2 border-b last:border-0 hover:bg-gray-50 rounded-lg transition-all"
+              >
+                {/* Ảnh sản phẩm nhỏ gọn */}
+                <div className="relative flex-shrink-0">
+                  <img
+                    src={product.image || "https://via.placeholder.com/150"}
+                    alt={product.name}
+                    className="w-12 h-12 object-cover rounded-md border"
+                  />
+                  <span className="absolute -top-2 -left-2 bg-gray-800 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white">
+                    {index + 1}
+                  </span>
                 </div>
-              ))}
-            </div>
-          )}
+
+                {/* Thông tin sản phẩm */}
+                <div className="ml-3 flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 line-clamp-1">
+                    {product.name}
+                  </p>
+                  <p className="text-[11px] text-gray-500 uppercase tracking-wider">
+                    Doanh số:{" "}
+                    <span className="text-gray-900 font-bold">
+                      {product.sales}
+                    </span>
+                  </p>
+                </div>
+
+                {/* Doanh thu - Cố định độ rộng để không bị nhảy */}
+                <div className="text-right ml-2 min-w-[80px]">
+                  <p className="text-sm font-bold text-green-600">
+                    {formatCurrency(product.revenue)}
+                  </p>
+                  <p className="text-[10px] text-gray-400">
+                    {product.stock} trong kho
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

@@ -1,225 +1,171 @@
 import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom"; // 🔥 BẮT BUỘC PHẢI CÓ
 import { useAuth } from "../../contexts/AuthContext";
-// 👇 1. Import API để lấy dữ liệu
 import { userAPI } from "../services/api";
 
+// Components
 import ProfileTab from "../components/account/ProfileTab";
 import OrdersTab from "../components/account/OrdersTab";
-import AddressTab from "../components/account/AddressTab";
+import AddressTab from "./AddressPage";
+import LoadingSpinner from "../components/common/LoadingSpinner";
 
 const AccountPage = () => {
   const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState("profile");
+  const location = useLocation(); // Lấy thông tin điều hướng từ Header gửi sang
 
-  // 👇 2. Thêm State lưu danh sách địa chỉ
+  // Khởi tạo activeTab: Ưu tiên lấy từ state truyền sang, nếu không có thì mặc định là profile
+  const [activeTab, setActiveTab] = useState(
+    location.state?.activeTab || "profile"
+  );
+
   const [addresses, setAddresses] = useState([]);
+  const [loadingAddress, setLoadingAddress] = useState(false);
 
-  // 👇 3. Hàm gọi API lấy danh sách địa chỉ (Callback truyền xuống con)
+  // Theo dõi location.state để cập nhật tab khi người dùng click từ Header (ví dụ: đang ở Account mà bấm lại My Orders)
+  useEffect(() => {
+    if (location.state?.activeTab) {
+      setActiveTab(location.state.activeTab);
+    }
+  }, [location.state]);
+
+  // --- 1. LẤY DỮ LIỆU ĐỊA CHỈ ---
   const fetchAddresses = async () => {
     try {
+      setLoadingAddress(true);
       const response = await userAPI.getAddresses();
-      // Xử lý dữ liệu trả về an toàn (Backend có thể trả mảng hoặc object)
-      const list = Array.isArray(response) ? response : response.data || [];
-      setAddresses(list);
+      // Axios interceptor trả về thẳng response.data hoặc data bọc trong data
+      const list = response.data || response || [];
+      setAddresses(Array.isArray(list) ? list : []);
     } catch (error) {
       console.error("Lỗi tải địa chỉ:", error);
+    } finally {
+      setLoadingAddress(false);
     }
   };
 
-  // 👇 4. Gọi hàm lấy dữ liệu khi mới vào trang
+  // Chỉ gọi API khi chuyển sang tab Address
   useEffect(() => {
     if (activeTab === "address") {
       fetchAddresses();
     }
-  }, [activeTab]); // Chỉ gọi khi chuyển sang tab address hoặc khi mới vào
+  }, [activeTab]);
 
+  // --- 2. CẤU HÌNH MENU ---
   const tabs = [
-    { id: "profile", name: "Profile", icon: "👤" },
-    { id: "orders", name: "Orders", icon: "📦" },
-    { id: "address", name: "Address", icon: "🏠" },
-    { id: "wishlist", name: "Wishlist", icon: "❤️" },
-    { id: "security", name: "Security", icon: "🔒" },
-    { id: "notifications", name: "Notifications", icon: "🔔" },
+    { id: "profile", name: "Hồ sơ", icon: "👤" },
+    { id: "orders", name: "Đơn mua", icon: "📦" },
+    { id: "address", name: "Địa chỉ", icon: "🏠" },
   ];
 
   const handleLogout = () => {
-    if (window.confirm("Are you sure you want to logout?")) {
+    if (window.confirm("Bạn có chắc chắn muốn đăng xuất?")) {
       logout();
     }
   };
 
   return (
-    <div className="py-8 container mx-auto px-4">
-      <div className="flex flex-col md:flex-row gap-8">
-        {/* Sidebar */}
-        <div className="md:w-1/4">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            {/* User Info */}
-            <div className="flex items-center mb-8">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                <span className="text-2xl font-bold text-blue-600">
-                  {user?.name?.charAt(0) || "U"}
-                </span>
+    <div className="py-8 bg-gray-50 min-h-screen">
+      <div className="container mx-auto px-4">
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* --- SIDEBAR TRÁI --- */}
+          <div className="md:w-1/4">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-20">
+              <div className="flex items-center mb-8">
+                <div className="w-16 h-16 bg-indigo-100 rounded-full overflow-hidden flex items-center justify-center mr-4 border-2 border-indigo-50">
+                  {user?.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt="Avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-2xl font-bold text-indigo-600">
+                      {user?.name?.charAt(0).toUpperCase() || "U"}
+                    </span>
+                  )}
+                </div>
+                <div className="overflow-hidden">
+                  <h3 className="font-bold text-lg truncate" title={user?.name}>
+                    {user?.name || "Khách hàng"}
+                  </h3>
+                  <p
+                    className="text-gray-500 text-sm truncate"
+                    title={user?.email}
+                  >
+                    {user?.email}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-lg">{user?.name || "User"}</h3>
-                <p className="text-gray-600 text-sm">
-                  {user?.email || "user@example.com"}
-                </p>
-                <span className="inline-block mt-1 px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                  Verified Account
-                </span>
-              </div>
-            </div>
 
-            {/* Navigation Tabs */}
-            <nav className="space-y-2">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${
-                    activeTab === tab.id
-                      ? "bg-blue-50 text-blue-600"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <span className="mr-3 text-xl">{tab.icon}</span>
-                  <span className="font-medium">{tab.name}</span>
-                </button>
-              ))}
-            </nav>
+              <nav className="space-y-1">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`w-full flex items-center px-4 py-3 rounded-lg transition-all ${
+                      activeTab === tab.id
+                        ? "bg-indigo-50 text-indigo-700 font-semibold shadow-sm"
+                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
+                  >
+                    <span className="mr-3 text-lg">{tab.icon}</span>
+                    <span>{tab.name}</span>
+                  </button>
+                ))}
+              </nav>
 
-            {/* Logout Button */}
-            <button
-              onClick={handleLogout}
-              className="w-full mt-8 flex items-center justify-center px-4 py-3 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-medium"
-            >
-              <svg
-                className="w-5 h-5 mr-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+              <hr className="my-6 border-gray-100" />
+
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center px-4 py-3 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                />
-              </svg>
-              Logout
-            </button>
-          </div>
-
-          {/* Account Stats */}
-          <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h4 className="font-semibold mb-4">Account Overview</h4>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Total Orders</span>
-                <span className="font-bold">12</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Pending Orders</span>
-                <span className="font-bold text-yellow-600">2</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Total Spent</span>
-                <span className="font-bold text-green-600">5,240,000 ₫</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Wishlist Items</span>
-                <span className="font-bold">8</span>
-              </div>
+                <svg
+                  className="w-5 h-5 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                  />
+                </svg>
+                Đăng xuất
+              </button>
             </div>
           </div>
-        </div>
 
-        {/* Main Content */}
-        <div className="md:w-3/4">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            {/* Tab Header */}
-            <div className="flex justify-between items-center mb-8">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">
+          {/* --- CONTENT PHẢI --- */}
+          <div className="md:w-3/4">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 min-h-[500px]">
+              <div className="mb-6 border-b pb-4">
+                <h2 className="text-2xl font-bold text-gray-800">
                   {tabs.find((t) => t.id === activeTab)?.name}
                 </h2>
-                <p className="text-gray-600 mt-1">
-                  Manage your{" "}
-                  {tabs.find((t) => t.id === activeTab)?.name.toLowerCase()}{" "}
-                  settings
-                </p>
               </div>
-              <div className="text-sm text-gray-500">
-                Member since{" "}
-                {new Date(user?.createdAt || Date.now()).toLocaleDateString()}
+
+              <div>
+                {/* SỬA: ProfileTab đã tự dùng useAuth() bên trong 
+                  nên không cần truyền props user={user} 
+                */}
+                {activeTab === "profile" && <ProfileTab />}
+
+                {activeTab === "orders" && <OrdersTab />}
+
+                {activeTab === "address" &&
+                  (loadingAddress ? (
+                    <LoadingSpinner />
+                  ) : (
+                    <AddressTab
+                      addresses={addresses}
+                      onAddressUpdate={fetchAddresses}
+                    />
+                  ))}
               </div>
             </div>
-
-            {/* Tab Content */}
-            <div className="min-h-[400px]">
-              {activeTab === "profile" && <ProfileTab user={user} />}
-              {activeTab === "orders" && <OrdersTab />}
-
-              {/* 👇 5. PHẦN QUAN TRỌNG NHẤT: Đã truyền props xuống AddressTab */}
-              {activeTab === "address" && (
-                <AddressTab
-                  addresses={addresses}
-                  onAddressUpdate={fetchAddresses}
-                />
-              )}
-
-              {activeTab === "wishlist" && (
-                <div className="text-center py-12">
-                  <div className="w-24 h-24 mx-auto mb-4 bg-pink-100 rounded-full flex items-center justify-center">
-                    <span className="text-4xl">❤️</span>
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                    Your wishlist is empty
-                  </h3>
-                  <p className="text-gray-500 mb-6">
-                    Save items you love for later
-                  </p>
-                  <button className="bg-pink-600 text-white px-8 py-3 rounded-lg hover:bg-pink-700 transition-colors font-medium">
-                    Start Shopping
-                  </button>
-                </div>
-              )}
-              {activeTab === "security" && (
-                <div className="space-y-6">
-                  <h3 className="text-lg font-semibold">Security Settings</h3>
-                  {/* ... Code Security giữ nguyên ... */}
-                  <p className="text-gray-500">Security settings content...</p>
-                </div>
-              )}
-              {activeTab === "notifications" && (
-                <div className="space-y-6">
-                  <h3 className="text-lg font-semibold">
-                    Notification Preferences
-                  </h3>
-                  {/* ... Code Notifications giữ nguyên ... */}
-                  <p className="text-gray-500">
-                    Notification settings content...
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button className="flex items-center justify-center p-4 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
-              <span className="font-medium text-blue-900">Track Order</span>
-            </button>
-            <button className="flex items-center justify-center p-4 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors">
-              <span className="font-medium text-green-900">Return Item</span>
-            </button>
-            <button className="flex items-center justify-center p-4 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors">
-              <span className="font-medium text-purple-900">
-                Contact Support
-              </span>
-            </button>
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import ProductCard from "../common/ProductCard";
-import { productService } from "../../services/productService";
+import ProductCard from "./ProductCard";
+import { productAPI as productService } from "../../services/api";
 
 const RelatedProducts = ({ productId, categoryId }) => {
   const [products, setProducts] = useState([]);
@@ -12,18 +12,20 @@ const RelatedProducts = ({ productId, categoryId }) => {
         setLoading(true);
 
         let relatedProducts;
-        if (productId) {
-          // Fetch related products by product ID
-          relatedProducts = await productService.getRelatedProducts(productId);
+        if (categoryId) {
+          // 1. Ưu tiên lấy sản phẩm cùng danh mục (Related)
+          // Tên mới: getRelated (hoặc getByCategory)
+          relatedProducts = await productService.getRelated(categoryId);
         } else if (categoryId) {
-          // Fetch products from same category
-          relatedProducts = await productService.getProductsByCategory(
-            categoryId,
-            { limit: 8 }
-          );
+          // (Logic của bạn đang lặp lại check categoryId, tôi gộp vào trường hợp trên nhé)
+          // Nếu muốn gọi rõ ràng kèm limit:
+          relatedProducts = await productService.getByCategory(categoryId, {
+            limit: 8,
+          });
         } else {
-          // Fetch featured products as fallback
-          relatedProducts = await productService.getFeaturedProducts();
+          // 2. Nếu không có danh mục thì lấy sản phẩm nổi bật
+          // Tên mới: getFeatured
+          relatedProducts = await productService.getFeatured();
         }
 
         setProducts(

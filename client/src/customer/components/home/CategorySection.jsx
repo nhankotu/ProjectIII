@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 // Đảm bảo đường dẫn import đúng
-import { productService } from "../../services/productService";
+import { productAPI as productService } from "../../services/api";
 
 const CategorySection = () => {
   const [categories, setCategories] = useState([]);
@@ -24,7 +24,6 @@ const CategorySection = () => {
           categoryArray = response.categories; // Trường hợp: { categories: [...] }
         }
 
-        // Chỉ lấy 8 danh mục đầu tiên
         setCategories(categoryArray.slice(0, 8));
       } catch (error) {
         console.error("Error fetching categories:", error);

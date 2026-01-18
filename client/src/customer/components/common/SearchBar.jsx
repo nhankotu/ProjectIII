@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { productService } from "../../services/productService";
+import { productAPI as productService } from "../../services/api";
 
 const SearchBar = ({ defaultValue = "", className = "", onSearch }) => {
   const navigate = useNavigate();

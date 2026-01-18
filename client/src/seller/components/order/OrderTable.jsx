@@ -4,21 +4,27 @@ import OrderActions from "./OrderActions";
 
 const OrderTable = ({ orders, onUpdateStatus, onViewDetails }) => {
   const formatCurrency = (amount) => {
+    // Thêm check amount để tránh lỗi nếu total bị undefined
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
       currency: "VND",
-    }).format(amount);
+    }).format(amount || 0);
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
     return new Date(dateString).toLocaleDateString("vi-VN");
   };
 
   const getPaymentMethodText = (method) => {
+    if (!method) return "Chưa chọn";
     const methods = {
       cod: "COD",
+      COD: "COD",
       momo: "Ví MoMo",
+      MOMO: "Ví MoMo",
       banking: "Chuyển khoản",
+      BANKING: "Chuyển khoản",
       card: "Thẻ tín dụng",
     };
     return methods[method] || method;
@@ -55,25 +61,34 @@ const OrderTable = ({ orders, onUpdateStatus, onViewDetails }) => {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {orders.map((order) => (
-              <tr key={order.id} className="hover:bg-gray-50">
+              // Dùng order._id nếu order.id bị undefined
+              <tr key={order._id || order.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">
-                    {order.id}
+                    {/* Hiển thị orderCode nếu có, không thì dùng ID rút gọn */}
+                    {order.orderCode ||
+                      (order._id || order.id)?.slice(-8).toUpperCase()}
                   </div>
                   <div className="text-sm text-gray-500">
-                    {order.items.length} sản phẩm
+                    {order.items?.length || 0} sản phẩm
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">
-                    {order.customer.name}
+                    {/* FIX LỖI Ở ĐÂY: Dùng ?. và fallback text */}
+                    {order.customer?.name ||
+                      order.shippingAddress?.fullName ||
+                      "Khách hàng ẩn danh"}
                   </div>
                   <div className="text-sm text-gray-500">
-                    {order.customer.phone}
+                    {order.customer?.phone ||
+                      order.shippingAddress?.phone ||
+                      "N/A"}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {formatCurrency(order.total)}
+                  {/* Model của bạn dùng totalAmount, hãy kiểm tra lại prop này */}
+                  {formatCurrency(order.totalAmount || order.total)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {getPaymentMethodText(order.paymentMethod)}

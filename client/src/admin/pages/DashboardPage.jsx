@@ -1,16 +1,17 @@
 import React from "react";
 import { useAdminDashboard } from "../hooks/useAdminDashboard";
 import { Users, Package, ShoppingCart, DollarSign } from "lucide-react";
-
+import { useNavigate } from "react-router-dom";
 const DashboardPage = () => {
   // 1. Gọi Hook
   const { stats, loading } = useAdminDashboard();
+  const navigate = useNavigate();
 
-  // 2. Định nghĩa đầy đủ mảng statCards
   const statCards = [
     {
       title: "Tổng người dùng",
       value: stats.totalUsers,
+      path: "/admin/users",
       icon: <Users size={24} />,
       colorClass: "bg-blue-100 text-blue-600",
       change: "Active Users",
@@ -19,6 +20,7 @@ const DashboardPage = () => {
     {
       title: "Tổng sản phẩm",
       value: stats.totalProducts,
+      path: "/admin/products",
       icon: <Package size={24} />,
       colorClass: "bg-green-100 text-green-600",
       change: `${stats.productBreakdown.pending || 0} chờ duyệt`,
@@ -64,6 +66,7 @@ const DashboardPage = () => {
         {statCards.map((stat, index) => (
           <div
             key={index}
+            onClick={() => stat.path && navigate(stat.path)}
             className="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-100 hover:shadow-md transition-shadow"
           >
             <div className="p-5">

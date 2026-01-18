@@ -29,3 +29,47 @@ export const getSellerOrders = async (req, res) => {
     });
   }
 };
+export const updateOrderStatus = async (req, res) => {
+  try {
+    const { id } = req.params; // Lấy ID đơn hàng từ URL
+    const { status } = req.body; // Lấy trạng thái mới từ body (pending, confirmed, shipping...)
+    const sellerId = req.user._id; // ID của Seller từ middleware
+
+    console.log(
+      `🔄 Seller ${sellerId} yêu cầu cập nhật đơn ${id} sang: ${status}`
+    );
+
+    // Tìm và cập nhật: Chỉ cho phép cập nhật đơn hàng thuộc về chính Seller đó
+    const order = await Order.findOneAndUpdate(
+      { _id: id, sellerId: sellerId },
+      { $set: { status: status } },
+      { new: true, runValidators: true } // Trả về data sau khi update và kiểm tra hợp lệ
+    ).populate("userId", "name email phone avatar");
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy đơn hàng hoặc bạn không có quyền sửa đơn này",
+      });
+    }
+
+    console.log(
+      `✅ Cập nhật trạng thái thành công cho đơn: ${
+        order.orderCode || order._id
+      }`
+    );
+
+    res.json({
+      success: true,
+      message: "Cập nhật trạng thái thành công",
+      data: order,
+    });
+  } catch (error) {
+    console.error("❌ Lỗi cập nhật trạng thái đơn hàng:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server khi cập nhật trạng thái",
+      error: error.message,
+    });
+  }
+};

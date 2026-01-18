@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { productService } from "../services/productService";
+import { productAPI as productService, cartAPI } from "../services/api";
 
 const CategoriesPage = () => {
   const [categories, setCategories] = useState([]);

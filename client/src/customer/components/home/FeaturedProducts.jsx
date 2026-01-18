@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import ProductCard from "../common/ProductCard";
-import { productService } from "../../services/productService";
-
+import ProductCard from "../product/ProductCard";
+import { productAPI as productService, cartAPI } from "../../services/api";
+import { Link } from "react-router-dom";
 const FeaturedProducts = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,7 +18,7 @@ const FeaturedProducts = () => {
     const fetchFeaturedProducts = async () => {
       try {
         setLoading(true);
-        const response = await productService.getFeaturedProducts();
+        const response = await productService.getFeatured();
 
         // --- LOGIC SỬA LỖI: Kiểm tra kỹ cấu trúc dữ liệu trả về ---
         let productArray = [];
@@ -139,10 +139,13 @@ const FeaturedProducts = () => {
 
       {/* View All Button */}
       <div className="text-center mt-12">
-        <button className="inline-flex items-center space-x-2 border-2 border-blue-600 text-blue-600 px-8 py-3 rounded-full hover:bg-blue-50 transition-colors font-medium">
+        <Link
+          to="/products" // 🔥 Đường dẫn đến trang danh sách sản phẩm của bạn
+          className="inline-flex items-center space-x-2 border-2 border-blue-600 text-blue-600 px-8 py-3 rounded-full hover:bg-blue-600 hover:text-white transition-all font-bold group"
+        >
           <span>View All Products</span>
           <svg
-            className="w-5 h-5"
+            className="w-5 h-5 transform group-hover:translate-x-1 transition-transform"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -154,7 +157,7 @@ const FeaturedProducts = () => {
               d="M17 8l4 4m0 0l-4 4m4-4H3"
             />
           </svg>
-        </button>
+        </Link>
       </div>
     </section>
   );

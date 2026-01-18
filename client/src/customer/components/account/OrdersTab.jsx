@@ -1,86 +1,72 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import LoadingSpinner from "../common/LoadingSpinner";
+import { orderAPI } from "../../services/api"; // 🔥 Import API thật
 
 const OrdersTab = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("all");
 
-  useEffect(() => {
-    // Mock API call
-    setTimeout(() => {
-      const mockOrders = [
-        {
-          id: "ORD-2024-00123",
-          date: "2024-01-15",
-          status: "delivered",
-          items: 3,
-          total: 2450000,
-          trackingNumber: "TRK123456789",
-          deliveryDate: "2024-01-18",
-          itemsDetails: [
-            { name: "Wireless Headphones", quantity: 1, price: 850000 },
-            { name: "Phone Case", quantity: 2, price: 300000 },
-          ],
-        },
-        {
-          id: "ORD-2024-00124",
-          date: "2024-01-20",
-          status: "shipped",
-          items: 2,
-          total: 1750000,
-          trackingNumber: "TRK987654321",
-          estimatedDelivery: "2024-01-25",
-          itemsDetails: [
-            { name: "Smart Watch", quantity: 1, price: 1200000 },
-            { name: "Screen Protector", quantity: 1, price: 550000 },
-          ],
-        },
-        {
-          id: "ORD-2024-00125",
-          date: "2024-01-22",
-          status: "processing",
-          items: 1,
-          total: 890000,
-          itemsDetails: [
-            { name: "Bluetooth Speaker", quantity: 1, price: 890000 },
-          ],
-        },
-        {
-          id: "ORD-2024-00126",
-          date: "2024-01-10",
-          status: "cancelled",
-          items: 2,
-          total: 450000,
-          itemsDetails: [{ name: "USB Cable", quantity: 2, price: 225000 }],
-        },
-      ];
-      setOrders(mockOrders);
+  // 1. Hàm lấy dữ liệu từ Server
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const response = await orderAPI.getMyOrders();
+      // axios interceptor của bạn trả về response.data nên:
+      const data = response.data || response;
+      setOrders(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Lỗi tải đơn hàng:", error);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
   }, []);
 
+  // 2. Hàm xử lý Hủy đơn hàng thật
+  const handleCancelOrder = async (orderId) => {
+    const reason = window.prompt("Lý do hủy đơn hàng của bạn là gì?");
+    if (reason === null) return; // Nhấn Cancel trong prompt
+
+    try {
+      await orderAPI.cancelOrder(orderId, reason);
+      alert("Đã gửi yêu cầu hủy đơn hàng!");
+      fetchOrders(); // Tải lại danh sách
+    } catch (error) {
+      alert(error.message || "Không thể hủy đơn hàng");
+    }
+  };
+
+  // Cấu hình các bộ lọc dựa trên dữ liệu thật
   const statusFilters = [
-    { id: "all", label: "All Orders", count: orders.length },
+    { id: "all", label: "Tất cả", count: orders.length },
     {
-      id: "processing",
-      label: "Processing",
-      count: orders.filter((o) => o.status === "processing").length,
+      id: "pending",
+      label: "Chờ xác nhận",
+      count: orders.filter((o) => o.status === "pending").length,
     },
     {
-      id: "shipped",
-      label: "Shipped",
-      count: orders.filter((o) => o.status === "shipped").length,
+      id: "confirmed", // ✨ Thêm bộ lọc Đã xác nhận
+      label: "Đã xác nhận",
+      count: orders.filter((o) => o.status === "confirmed").length,
+    },
+    {
+      id: "shipping",
+      label: "Đang giao",
+      count: orders.filter((o) => o.status === "shipping").length,
     },
     {
       id: "delivered",
-      label: "Delivered",
+      label: "Đã giao",
       count: orders.filter((o) => o.status === "delivered").length,
     },
     {
       id: "cancelled",
-      label: "Cancelled",
+      label: "Đã hủy",
       count: orders.filter((o) => o.status === "cancelled").length,
     },
   ];
@@ -94,65 +80,55 @@ const OrdersTab = () => {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
       currency: "VND",
-    }).format(price);
+    }).format(price || 0);
   };
 
   const getStatusBadge = (status) => {
     const statusConfig = {
-      processing: {
+      pending: {
         color: "bg-yellow-100 text-yellow-800",
-        label: "Processing",
+        label: "Chờ xác nhận",
       },
-      shipped: { color: "bg-blue-100 text-blue-800", label: "Shipped" },
-      delivered: { color: "bg-green-100 text-green-800", label: "Delivered" },
-      cancelled: { color: "bg-red-100 text-red-800", label: "Cancelled" },
+      confirmed: {
+        color: "bg-indigo-100 text-indigo-800", // ✨ Màu tím xanh cho sự tin cậy
+        label: "Đã xác nhận",
+      },
+      shipping: { color: "bg-blue-100 text-blue-800", label: "Đang giao" },
+      delivered: { color: "bg-green-100 text-green-800", label: "Đã giao" },
+      cancelled: { color: "bg-red-100 text-red-800", label: "Đã hủy" },
     };
-
     const config = statusConfig[status] || {
       color: "bg-gray-100 text-gray-800",
-      label: "Unknown",
+      label: status,
     };
-
     return (
       <span
-        className={`px-3 py-1 rounded-full text-sm font-medium ${config.color}`}
+        className={`px-3 py-1 rounded-full text-xs font-medium ${config.color}`}
       >
         {config.label}
       </span>
     );
   };
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
+  if (loading)
+    return (
+      <div className="py-10">
+        <LoadingSpinner />
+      </div>
+    );
 
   return (
     <div className="space-y-6">
-      {/* Order Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {statusFilters.slice(1).map((filter) => (
-          <div
-            key={filter.id}
-            className="bg-white border border-gray-200 rounded-lg p-4"
-          >
-            <div className="text-2xl font-bold text-gray-900">
-              {filter.count}
-            </div>
-            <div className="text-sm text-gray-600 mt-1">{filter.label}</div>
-          </div>
-        ))}
-      </div>
-
       {/* Filters */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 border-b pb-4">
         {statusFilters.map((filter) => (
           <button
             key={filter.id}
             onClick={() => setActiveFilter(filter.id)}
-            className={`px-4 py-2 rounded-full transition-colors ${
+            className={`px-4 py-2 rounded-lg text-sm transition-colors ${
               activeFilter === filter.id
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                ? "bg-blue-600 text-white shadow-md"
+                : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
             }`}
           >
             {filter.label} ({filter.count})
@@ -162,174 +138,119 @@ const OrdersTab = () => {
 
       {/* Orders List */}
       {filteredOrders.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-            <svg
-              className="w-12 h-12 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-              />
-            </svg>
-          </div>
-          <h3 className="text-xl font-semibold text-gray-700 mb-2">
-            No orders found
+        <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed">
+          <div className="text-4xl mb-4">📦</div>
+          <h3 className="text-lg font-medium text-gray-900">
+            Không tìm thấy đơn hàng
           </h3>
-          <p className="text-gray-500">You haven't placed any orders yet</p>
+          <p className="text-gray-500">
+            Bạn chưa có đơn hàng nào trong mục này.
+          </p>
           <Link
             to="/products"
-            className="inline-block mt-6 bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            className="inline-block mt-4 text-blue-600 font-medium"
           >
-            Start Shopping
+            Mua sắm ngay →
           </Link>
         </div>
       ) : (
         <div className="space-y-4">
           {filteredOrders.map((order) => (
             <div
-              key={order.id}
-              className="bg-white border border-gray-200 rounded-xl overflow-hidden"
+              key={order._id || order.id}
+              className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
             >
-              {/* Order Header */}
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  <div>
-                    <div className="flex items-center gap-4">
-                      <h3 className="font-bold text-lg">Order #{order.id}</h3>
-                      {getStatusBadge(order.status)}
-                    </div>
-                    <p className="text-gray-600 text-sm mt-1">
-                      Placed on{" "}
-                      {new Date(order.date).toLocaleDateString("vi-VN", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                    </p>
-                  </div>
-
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-gray-900">
-                      {formatPrice(order.total)}
-                    </div>
-                    <p className="text-gray-600 text-sm">
-                      {order.items} item{order.items !== 1 ? "s" : ""}
-                    </p>
-                  </div>
+              {/* Header */}
+              <div className="p-4 bg-gray-50 flex flex-col md:flex-row justify-between md:items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="font-bold text-gray-900 text-sm">
+                    #{order._id?.slice(-8).toUpperCase()}
+                  </span>
+                  {getStatusBadge(order.status)}
                 </div>
+                <span className="text-gray-500 text-xs">
+                  Ngày đặt:{" "}
+                  {new Date(order.createdAt || order.date).toLocaleDateString(
+                    "vi-VN"
+                  )}
+                </span>
               </div>
 
-              {/* Order Items */}
-              <div className="p-6">
-                <h4 className="font-semibold mb-4">Items in this order</h4>
-                <div className="space-y-4">
-                  {order.itemsDetails.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between"
-                    >
-                      <div className="flex items-center">
-                        <div className="w-16 h-16 bg-gray-100 rounded-lg mr-4"></div>
-                        <div>
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-sm text-gray-600">
-                            Qty: {item.quantity}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="font-medium">
-                        {formatPrice(item.price * item.quantity)}
-                      </div>
+              {/* Items */}
+              <div className="p-4 divide-y divide-gray-100">
+                {(order.items || order.itemsDetails || []).map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center py-3 first:pt-0 last:pb-0"
+                  >
+                    <img
+                      src={
+                        // 1. Ưu tiên Snapshot URL (String) lưu trực tiếp trong đơn hàng
+                        item.thumbnail ||
+                        // 2. Dự phòng lấy từ object product nếu có populate
+                        item.product?.thumbnail?.url ||
+                        item.product?.thumbnail ||
+                        // 3. Ảnh mặc định nếu cả 2 trên đều trống
+                        "https://via.placeholder.com/150?text=No+Image"
+                      }
+                      alt={item.name}
+                      className="w-16 h-16 object-cover rounded-md border"
+                      // Thêm xử lý lỗi nếu URL ảnh bị chết (404)
+                      onError={(e) => {
+                        e.target.src =
+                          "https://via.placeholder.com/150?text=Error";
+                      }}
+                    />
+                    <div className="ml-4 flex-grow">
+                      <p className="text-sm font-medium text-gray-900 line-clamp-1">
+                        {item.product?.name || item.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Số lượng: {item.quantity}
+                      </p>
                     </div>
-                  ))}
-                </div>
+                    <div className="text-sm font-semibold text-gray-900">
+                      {formatPrice(item.price * item.quantity)}
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              {/* Order Actions */}
-              <div className="p-6 bg-gray-50 border-t border-gray-200">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  <div>
-                    {order.trackingNumber && (
-                      <p className="text-gray-600">
-                        Tracking:{" "}
-                        <span className="font-medium">
-                          {order.trackingNumber}
-                        </span>
-                      </p>
-                    )}
-                    {order.deliveryDate && (
-                      <p className="text-gray-600 text-sm">
-                        Delivered on{" "}
-                        {new Date(order.deliveryDate).toLocaleDateString()}
-                      </p>
-                    )}
-                    {order.estimatedDelivery && (
-                      <p className="text-gray-600 text-sm">
-                        Estimated delivery:{" "}
-                        {new Date(order.estimatedDelivery).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
+              {/* Footer */}
+              <div className="flex gap-2">
+                <Link
+                  to={`/account/orders/${order._id || order.id}`}
+                  className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Chi tiết
+                </Link>
 
-                  <div className="flex flex-wrap gap-3">
-                    <Link
-                      to={`/orders/${order.id}`}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      View Details
-                    </Link>
+                {/* ✨ CHỈ cho phép hủy khi đang ở trạng thái pending */}
+                {order.status === "pending" && (
+                  <button
+                    onClick={() => handleCancelOrder(order._id || order.id)}
+                    className="px-4 py-2 text-sm bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                  >
+                    Hủy đơn
+                  </button>
+                )}
 
-                    {order.status === "delivered" && (
-                      <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                        Leave Review
-                      </button>
-                    )}
+                {/* Hiển thị nút liên hệ nếu đã xác nhận hoặc đang giao */}
+                {(order.status === "confirmed" ||
+                  order.status === "shipping") && (
+                  <button className="px-4 py-2 text-sm border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50">
+                    Liên hệ Shop
+                  </button>
+                )}
 
-                    {order.status === "processing" && (
-                      <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
-                        Cancel Order
-                      </button>
-                    )}
-
-                    {order.status === "shipped" && (
-                      <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                        Track Order
-                      </button>
-                    )}
-                  </div>
-                </div>
+                {order.status === "delivered" && (
+                  <button className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Đánh giá
+                  </button>
+                )}
               </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Pagination */}
-      {filteredOrders.length > 0 && (
-        <div className="flex justify-center mt-8">
-          <nav className="flex items-center space-x-2">
-            <button className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-              ← Previous
-            </button>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg">
-              1
-            </button>
-            <button className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-              2
-            </button>
-            <button className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-              3
-            </button>
-            <button className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-              Next →
-            </button>
-          </nav>
         </div>
       )}
     </div>

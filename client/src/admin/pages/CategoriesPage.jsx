@@ -18,17 +18,29 @@ const CategoriesPage = () => {
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
-
+  const [file, setFile] = useState(null);
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Giả sử backend nhận JSON. Nếu nhận file ảnh thì dùng FormData()
-    const success = await createCategory({ name, description: desc });
+
+    // Sử dụng FormData để bao bọc cả text và file
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("description", desc);
+
+    if (file) {
+      // Lưu ý: Key "images" phải khớp với req.files.images ở Backend
+      formData.append("images", file);
+    }
+
+    // Truyền formData vào hàm createCategory
+    const success = await createCategory(formData);
+
     if (success) {
       setName("");
       setDesc("");
+      setFile(null);
     }
   };
-
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">Quản lý Danh mục</h1>
@@ -52,6 +64,18 @@ const CategoriesPage = () => {
                 required
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Ảnh cho category
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setFile(e.target.files[0])}
+                className="mt-1 w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+              />
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Mô tả

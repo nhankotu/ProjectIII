@@ -1,23 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
 export const useOrders = () => {
-  // ⚠️ Bỏ tham số sellerId vì ta sẽ lấy từ Token
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // ✅ Helper lấy token an toàn
-  const getToken = () => {
-    return localStorage.getItem("token");
-  };
+  const getToken = () => localStorage.getItem("token");
 
-  // ✅ Fetch orders từ API Seller (Đã sửa)
-  const fetchOrders = async () => {
+  // Dùng useCallback để tránh re-render vô tận
+  const fetchOrders = useCallback(async () => {
     const token = getToken();
-
-    // Nếu không có token (chưa đăng nhập), dừng lại
     if (!token) {
       setLoading(false);
       return;
@@ -27,52 +21,46 @@ export const useOrders = () => {
     setError(null);
 
     try {
-      // 🛠️ SỬA ĐỔI QUAN TRỌNG TẠI ĐÂY:
-      // 1. URL: Trỏ về /api/seller/orders
-      // 2. Headers: Gửi kèm Token
       const res = await fetch(`${API_BASE}/api/seller/orders`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`, // Gửi token để Backend biết Seller là ai
+          Authorization: `Bearer ${token}`,
         },
       });
 
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`Lỗi server: ${res.status}`);
 
       const data = await res.json();
 
       if (data.success) {
-        setOrders(data.data || []);
+        // Đảm bảo luôn gán là một mảng
+        setOrders(Array.isArray(data.data) ? data.data : []);
       } else {
-        throw new Error(data.message || "Failed to fetch orders");
+        throw new Error(data.message || "Không thể tải danh sách đơn hàng");
       }
     } catch (err) {
       console.error("❌ Error fetching orders:", err);
       setError(err.message);
-      setOrders([]);
+      setOrders([]); // Reset về mảng rỗng nếu lỗi
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Gọi fetch khi component mount
   useEffect(() => {
     fetchOrders();
-  }, []); // Không cần phụ thuộc sellerId nữa
+  }, [fetchOrders]);
 
-  // ✅ Cập nhật trạng thái đơn hàng (Cũng cần thêm Token)
   const updateOrderStatus = async (orderId, newStatus) => {
     const token = getToken();
-    if (!token) return { success: false, error: "No token found" };
+    if (!token) return { success: false, error: "Phiên đăng nhập hết hạn" };
 
     try {
-      // Optimistic update
+      // 1. Optimistic update (Cập nhật giao diện trước cho nhanh)
       setOrders((prev) =>
         prev.map((order) =>
-          order.id === orderId
+          order._id === orderId || order.id === orderId // Kiểm tra cả _id và id
             ? {
                 ...order,
                 status: newStatus,
@@ -82,57 +70,42 @@ export const useOrders = () => {
         )
       );
 
-      // Gọi API Update (Thường route này cũng cần bảo vệ bằng Token)
-      // Lưu ý: Kiểm tra lại route backend cập nhật đơn hàng của bạn là gì.
-      // Thường là PUT /api/seller/orders/:id hoặc PUT /api/orders/:id
-      // Ở đây tôi giả định bạn dùng route chung /api/orders/:id nhưng thêm Token
-      const res = await fetch(`${API_BASE}/api/orders/${orderId}`, {
+      // 2. Gọi API Update - ⚠️ HÃY KIỂM TRA ROUTE NÀY Ở BACKEND CỦA BẠN
+      // Nếu Backend là /api/seller/orders/status/:id thì sửa lại cho đúng
+      const res = await fetch(`${API_BASE}/api/seller/orders/${orderId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`, // 🔥 Thêm Token vào đây luôn
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          status: newStatus,
-        }),
+        body: JSON.stringify({ status: newStatus }),
       });
 
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
+      if (!res.ok)
+        throw new Error(`Lỗi ${res.status}: Không tìm thấy đơn hàng`);
 
       const data = await res.json();
 
-      if (!data.success) {
-        throw new Error(data.message || "Failed to update order");
-      }
+      if (!data.success) throw new Error(data.message);
 
-      // Cập nhật lại data chuẩn từ server
+      // Cập nhật lại dữ liệu chuẩn từ server
       setOrders((prev) =>
-        prev.map((order) => (order.id === orderId ? data.data : order))
+        prev.map((order) =>
+          order._id === orderId || order.id === orderId ? data.data : order
+        )
       );
 
       return { success: true, data: data.data };
     } catch (err) {
-      console.error("❌ Error updating order status:", err);
-
-      // Revert nếu lỗi
-      setOrders((prev) => fetchOrders()); // Fetch lại cho chắc ăn
-      setError(err.message);
+      console.error("❌ Error updating status:", err);
+      fetchOrders(); // Tải lại danh sách để đồng bộ nếu lỗi
       return { success: false, error: err.message };
     }
   };
 
-  // ✅ Lọc orders theo status
-  const getOrdersByStatus = (status) => {
-    if (status === "all") return orders;
-    return orders.filter((order) => order.status === status);
-  };
-
-  // ✅ Tính toán số lượng orders
-  const getOrderCounts = () => {
+  const getOrderCounts = useCallback(() => {
     const counts = {
-      all: orders.length,
+      total: orders.length,
       pending: 0,
       confirmed: 0,
       shipping: 0,
@@ -141,20 +114,19 @@ export const useOrders = () => {
     };
 
     orders.forEach((order) => {
-      if (counts[order.status] !== undefined) {
+      if (counts.hasOwnProperty(order.status)) {
         counts[order.status]++;
       }
     });
 
     return counts;
-  };
+  }, [orders]);
 
   return {
     orders,
     loading,
     error,
     updateOrderStatus,
-    getOrdersByStatus,
     getOrderCounts,
     refetch: fetchOrders,
   };

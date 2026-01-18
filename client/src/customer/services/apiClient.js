@@ -1,15 +1,14 @@
 import axios from "axios";
 
-// Create axios instance with default config
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
-  timeout: 10000,
+  baseURL: import.meta.env.VITE_API_URL, // Đảm bảo đúng biến môi trường Vite
+  timeout: 30000,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Request interceptor to add auth token
+// Request Interceptor: Tự động gắn Token
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
@@ -18,37 +17,22 @@ apiClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor
+// Response Interceptor: Xử lý data và lỗi
 apiClient.interceptors.response.use(
-  (response) => response.data,
+  (response) => response.data, // ✅ Trả về data trực tiếp, bỏ qua lớp vỏ axios
   (error) => {
-    // Handle unauthorized access
+    // Xử lý lỗi 401: Hết hạn token
     if (error.response?.status === 401) {
       localStorage.removeItem("token");
-      if (typeof globalThis.location !== "undefined") {
-        globalThis.location.href = "/login";
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
       }
     }
-
-    // Handle network errors
-    if (!error.response) {
-      return Promise.reject({
-        message: "Network error. Please check your connection.",
-        isNetworkError: true,
-      });
-    }
-
-    // Handle server errors
-    return Promise.reject({
-      message: error.response.data?.message || "Something went wrong",
-      status: error.response.status,
-      data: error.response.data,
-    });
+    // Trả về lỗi clean để component hiển thị
+    return Promise.reject(error.response?.data || { message: error.message });
   }
 );
 

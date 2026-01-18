@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import ProductCard from "../common/ProductCard";
-import { productService } from "../../services/productService";
+import ProductCard from "../product/ProductCard";
+import { productAPI as productService } from "../../services/api";
 
 const FlashSaleSection = () => {
   const [products, setProducts] = useState([]);
@@ -17,7 +17,7 @@ const FlashSaleSection = () => {
     const fetchFlashSaleProducts = async () => {
       try {
         setLoading(true);
-        const response = await productService.getFlashSaleProducts();
+        const response = await productService.getFlashSale();
 
         // --- LOGIC XỬ LÝ DỮ LIỆU ĐÚNG CHUẨN ---
         // Backend trả về: { success: true, data: [ { title: "...", products: [...] } ] }
@@ -37,7 +37,7 @@ const FlashSaleSection = () => {
         if (allProducts.length === 0) {
           // console.warn("Flash Sale trống! Đang lấy sản phẩm thường demo...");
           try {
-            const fallbackRes = await productService.getFeaturedProducts();
+            const fallbackRes = await productService.getFeatured();
             const fallbackData =
               fallbackRes.data?.data || fallbackRes.data || [];
             allProducts = Array.isArray(fallbackData) ? fallbackData : [];

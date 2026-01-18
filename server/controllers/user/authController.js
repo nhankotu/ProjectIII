@@ -44,80 +44,62 @@ export const authCheck = async (req, res) => {
 // Upload avatar endpoint
 export const uploadAvatar = async (req, res) => {
   try {
-    const userId = req.user.id;
+    // 🔥 Sửa lại cách lấy ID cho chuẩn MongoDB
+    const userId = req.user._id;
     const file = req.file;
 
     if (!file) {
       return res.status(400).json({
         success: false,
-        message: "Không có file được tải lên",
+        message:
+          "Không có file được tải lên. Hãy đảm bảo key gửi lên là 'avatar'",
       });
     }
 
-    console.log("🔄 Uploading avatar to Cloudinary...");
-
-    // Config Cloudinary
-    cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET,
-    });
-
-    // Lấy thông tin user hiện tại để xóa ảnh cũ
+    // Lấy thông tin user hiện tại
     const currentUser = await User.findById(userId);
-    const oldAvatarUrl = currentUser.avatar;
+    if (!currentUser)
+      return res.status(404).json({ message: "User không tồn tại" });
 
-    // Upload ảnh mới lên Cloudinary
+    // Upload lên Cloudinary từ đường dẫn file tạm (Disk Storage)
     const result = await cloudinary.uploader.upload(file.path, {
       folder: "avatars",
     });
 
-    // Xóa file tạm sau khi upload
-    fs.unlinkSync(file.path);
+    // Xóa file tạm ở local sau khi đã lên mây
+    if (fs.existsSync(file.path)) {
+      fs.unlinkSync(file.path);
+    }
 
-    console.log("✅ Avatar uploaded to Cloudinary:", result.secure_url);
+    // Cập nhật Database
+    const oldAvatarUrl = currentUser.avatar;
+    currentUser.avatar = result.secure_url;
+    await currentUser.save();
 
-    // Cập nhật user với avatar URL mới
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { avatar: result.secure_url },
-      { new: true }
-    ).select("-password");
-
-    // 🔥 XÓA ẢNH CŨ TRÊN CLOUDINARY (nếu có)
+    // Xóa ảnh cũ trên Cloudinary (nếu có)
     if (oldAvatarUrl && oldAvatarUrl.includes("cloudinary")) {
       try {
-        // Extract public_id từ URL
-        const urlParts = oldAvatarUrl.split("/");
-        const filename = urlParts[urlParts.length - 1];
-        const publicId = `avatars/${filename.split(".")[0]}`;
-
-        console.log("🗑️ Deleting old avatar:", publicId);
-
+        const publicId = `avatars/${
+          oldAvatarUrl.split("/").pop().split(".")[0]
+        }`;
         await cloudinary.uploader.destroy(publicId);
-        console.log("✅ Old avatar deleted successfully");
-      } catch (deleteError) {
-        console.error("⚠️ Could not delete old avatar:", deleteError.message);
-        // Không throw error vì upload ảnh mới đã thành công
+      } catch (err) {
+        console.log("Không xóa được ảnh cũ:", err.message);
       }
     }
 
     res.json({
       success: true,
-      message: "Upload avatar thành công!",
-      user: updatedUser,
+      message: "Cập nhật ảnh đại diện thành công!",
+      user: {
+        _id: currentUser._id,
+        name: currentUser.name,
+        avatar: currentUser.avatar,
+      },
     });
   } catch (error) {
-    console.error("❌ Lỗi upload avatar:", error);
-
-    // Xóa file tạm nếu có lỗi
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    console.error("Lỗi upload avatar:", error);
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    res.status(500).json({ success: false, message: error.message });
   }
 };

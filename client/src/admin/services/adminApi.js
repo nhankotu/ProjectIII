@@ -25,7 +25,19 @@ const adminApi = {
 
   // ================= CATEGORIES =================
   // Lưu ý: Dựa trên router.post("/categories") -> URL là /api/admin/categories
-  createCategory: (data) => apiClient.post("/api/admin/categories", data), // data = FormData hoặc JSON
+  // adminApi.js
+  createCategory: (data) => {
+    // Kiểm tra nếu data là FormData (có chứa file)
+    if (data instanceof FormData) {
+      return apiClient.post("/api/admin/categories", data, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+    }
+    // Nếu chỉ là JSON thông thường
+    return apiClient.post("/api/admin/categories", data);
+  },
 
   deleteCategory: (id) => apiClient.delete(`/api/admin/categories/${id}`),
 

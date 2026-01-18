@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import ProductCard from "../components/common/ProductCard";
-import { productService } from "../services/productService";
+import ProductCard from "../components/product/ProductCard";
+import { productAPI as productService, cartAPI } from "../services/api";
 
 const FlashSalePage = () => {
   const [flashSaleItems, setFlashSaleItems] = useState([]);
@@ -17,7 +17,7 @@ const FlashSalePage = () => {
     const fetchFlashSaleProducts = async () => {
       try {
         setLoading(true);
-        const response = await productService.getFlashSaleProducts();
+        const response = await productService.getFlashSale();
 
         // 1. Kiểm tra cấu trúc dữ liệu trả về
         const campaigns = response.data?.data || response.data || [];

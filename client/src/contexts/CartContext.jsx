@@ -1,4 +1,8 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
+// 1. Import Auth để biết khi nào user đăng nhập
+import { useAuth } from "./AuthContext";
+// 2. Import API để gọi về Server
+import { cartAPI } from "../customer/services/api";
 
 const CartContext = createContext();
 
@@ -11,27 +15,61 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
+  const { isAuthenticated } = useAuth(); // Lấy trạng thái đăng nhập
   const [cartItems, setCartItems] = useState([]);
   const [cartTotal, setCartTotal] = useState(0);
   const [cartCount, setCartCount] = useState(0);
+  const [loading, setLoading] = useState(false);
 
-  // Load cart from localStorage on mount
+  // =================================================================
+  // 1. LOAD GIỎ HÀNG (API nếu đã login, LocalStorage nếu chưa)
+  // =================================================================
   useEffect(() => {
-    const savedCart = localStorage.getItem("cart");
-    if (savedCart) {
-      try {
-        const parsedCart = JSON.parse(savedCart);
-        setCartItems(parsedCart);
-      } catch (error) {
-        console.error("Failed to parse cart from localStorage:", error);
+    const fetchCart = async () => {
+      if (isAuthenticated) {
+        // --- CASE A: ĐÃ ĐĂNG NHẬP -> GỌI API ---
+        try {
+          setLoading(true);
+          const res = await cartAPI.getCart();
+          if (res.data && res.data.items) {
+            // Backend thường trả về cấu trúc: { product: {...}, quantity: 1 }
+            // Cần flatten nó ra để dễ hiển thị nếu cần, hoặc giữ nguyên tuỳ UI
+            // Ở đây mình giả sử bạn map lại cho giống cấu trúc localStorage
+            const items = res.data.items.map((item) => ({
+              ...item.product, // Thông tin sản phẩm
+              quantity: item.quantity,
+              // Lưu lại product ID gốc để gửi lên server các lần sau
+              productId: item.product._id || item.product.id,
+            }));
+            setCartItems(items);
+          }
+        } catch (error) {
+          console.error("Lỗi tải giỏ hàng từ server:", error);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        // --- CASE B: CHƯA ĐĂNG NHẬP -> DÙNG LOCALSTORAGE ---
+        const savedCart = localStorage.getItem("cart");
+        if (savedCart) {
+          try {
+            setCartItems(JSON.parse(savedCart));
+          } catch (error) {
+            console.error("Lỗi parse cart local:", error);
+          }
+        }
       }
-    }
-  }, []);
+    };
 
-  // Update cart totals whenever cartItems change
+    fetchCart();
+  }, [isAuthenticated]); // Chạy lại mỗi khi trạng thái đăng nhập thay đổi
+
+  // =================================================================
+  // 2. TÍNH TỔNG TIỀN (Chạy mỗi khi cartItems thay đổi)
+  // =================================================================
   useEffect(() => {
     const total = cartItems.reduce(
-      (sum, item) => sum + item.price * item.quantity,
+      (sum, item) => sum + (item.price || 0) * item.quantity,
       0
     );
     const count = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -39,65 +77,112 @@ export const CartProvider = ({ children }) => {
     setCartTotal(total);
     setCartCount(count);
 
-    // Save to localStorage
-    localStorage.setItem("cart", JSON.stringify(cartItems));
-  }, [cartItems]);
+    // Nếu chưa đăng nhập thì lưu local để backup
+    if (!isAuthenticated) {
+      localStorage.setItem("cart", JSON.stringify(cartItems));
+    }
+  }, [cartItems, isAuthenticated]);
 
-  // Add item to cart
-  const addToCart = (product, quantity = 1) => {
+  // =================================================================
+  // 3. THÊM VÀO GIỎ (ADD TO CART)
+  // =================================================================
+  const addToCart = async (product, quantity = 1) => {
+    // A. Cập nhật UI ngay lập tức (Optimistic UI)
+    const newItem = { ...product, quantity };
+
+    // Chuẩn hóa ID: Backend dùng _id, Frontend có thể dùng id
+    const productId = product._id || product.id;
+
     setCartItems((prevItems) => {
       const existingItemIndex = prevItems.findIndex(
-        (item) => item.id === product.id
+        (item) => (item._id || item.id) === productId
       );
-
       if (existingItemIndex >= 0) {
-        // Update quantity if item exists
         const updatedItems = [...prevItems];
         updatedItems[existingItemIndex].quantity += quantity;
         return updatedItems;
       } else {
-        // Add new item
-        return [...prevItems, { ...product, quantity }];
+        return [...prevItems, newItem];
       }
     });
+
+    // B. Nếu đã đăng nhập -> Gọi API đồng bộ
+    if (isAuthenticated) {
+      try {
+        await cartAPI.addToCart({ productId, quantity });
+      } catch (error) {
+        console.error("Lỗi thêm vào giỏ hàng server:", error);
+        // Có thể revert lại state nếu cần thiết
+      }
+    }
   };
 
-  // Remove item from cart
-  const removeFromCart = (productId) => {
+  // =================================================================
+  // 4. XÓA KHỎI GIỎ (REMOVE)
+  // =================================================================
+  const removeFromCart = async (productId) => {
+    // Update UI
     setCartItems((prevItems) =>
-      prevItems.filter((item) => item.id !== productId)
+      prevItems.filter((item) => (item._id || item.id) !== productId)
     );
+
+    // Call API
+    if (isAuthenticated) {
+      try {
+        await cartAPI.removeFromCart(productId);
+      } catch (error) {
+        console.error("Lỗi xóa sản phẩm server:", error);
+      }
+    }
   };
 
-  // Update item quantity
-  const updateQuantity = (productId, quantity) => {
+  // =================================================================
+  // 5. CẬP NHẬT SỐ LƯỢNG (UPDATE QUANTITY)
+  // =================================================================
+  const updateQuantity = async (productId, quantity) => {
     if (quantity <= 0) {
       removeFromCart(productId);
       return;
     }
 
+    // Update UI
     setCartItems((prevItems) =>
       prevItems.map((item) =>
-        item.id === productId ? { ...item, quantity } : item
+        (item._id || item.id) === productId ? { ...item, quantity } : item
       )
     );
+
+    // Call API
+    if (isAuthenticated) {
+      try {
+        await cartAPI.updateCartItem({ productId, quantity });
+      } catch (error) {
+        console.error("Lỗi cập nhật số lượng server:", error);
+      }
+    }
   };
 
-  // Clear entire cart
-  const clearCart = () => {
+  // =================================================================
+  // 6. XÓA HẾT GIỎ (CLEAR)
+  // =================================================================
+  const clearCart = async () => {
     setCartItems([]);
     localStorage.removeItem("cart");
+
+    // Lưu ý: Thường Backend không có API clearCart riêng,
+    // hoặc bạn phải loop xóa từng cái, hoặc tạo thêm API clearCart.
+    // Tạm thời nếu logout thì state sẽ tự clear do useEffect ở trên.
   };
 
-  // Check if item is in cart
   const isInCart = (productId) => {
-    return cartItems.some((item) => item.id === productId);
+    return cartItems.some((item) => (item._id || item.id) === productId);
   };
 
   const value = {
     cartItems,
     cartTotal,
     cartCount,
+    loading, // Thêm loading để hiển thị spinner nếu cần
     addToCart,
     removeFromCart,
     updateQuantity,

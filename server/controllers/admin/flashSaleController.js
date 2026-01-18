@@ -1,73 +1,125 @@
 import FlashSale from "../../models/FlashSale.js";
 
+// Lấy danh sách các sản phẩm đang chờ duyệt trong tất cả các khung giờ
 export const getPendingFlashSales = async (req, res) => {
   try {
-    const sales = await FlashSale.find({ status: "pending" })
-      .populate("createdBy", "username email")
-      .populate({
-        path: "products.product",
-        // ✅ PHẢI LẤY THÊM thumbnail và images
-        select: "name price thumbnail images",
-      });
+    // 1. Tìm các Flash Sale có chứa ít nhất 1 sản phẩm đang pending
+    const sales = await FlashSale.find({ "products.status": "pending" })
+      .populate("products.product", "name price thumbnail images") // Lấy info sản phẩm
+      .populate("products.seller", "name email"); // Lấy info người bán (QUAN TRỌNG)
 
-    const formattedData = sales.map((sale) => {
-      const saleObj = sale.toObject();
+    // 2. Làm phẳng dữ liệu (Flatten) để hiển thị dạng danh sách yêu cầu
+    let pendingRequests = [];
 
-      saleObj.products = saleObj.products.map((item) => {
-        if (!item.product) return item;
+    sales.forEach((sale) => {
+      // Lọc ra chỉ những item đang pending trong khung giờ này
+      const pendingItems = sale.products.filter(
+        (item) => item.status === "pending"
+      );
 
+      pendingItems.forEach((item) => {
+        // Logic xử lý ảnh (giữ nguyên logic của bạn)
         const prod = item.product;
-        // ✅ ÁP DỤNG LOGIC LẤY ẢNH THÔNG MINH SANG ĐÂY
         let imageUrl = "https://via.placeholder.com/150";
-
-        if (prod.thumbnail && prod.thumbnail.url) {
-          imageUrl = prod.thumbnail.url;
-        } else if (prod.images && prod.images.length > 0) {
-          imageUrl = prod.images[0].url || prod.images[0];
-        } else if (typeof prod.thumbnail === "string") {
-          imageUrl = prod.thumbnail;
+        if (prod) {
+          if (prod.thumbnail && prod.thumbnail.url) {
+            imageUrl = prod.thumbnail.url;
+          } else if (prod.images && prod.images.length > 0) {
+            imageUrl = prod.images[0].url || prod.images[0];
+          } else if (typeof prod.thumbnail === "string") {
+            imageUrl = prod.thumbnail;
+          }
         }
 
-        return {
-          ...item,
-          product: {
-            ...prod,
-            thumbnail: imageUrl, // Gán link ảnh cuối cùng vào đây
-          },
-        };
+        // Đẩy vào mảng kết quả
+        pendingRequests.push({
+          flashSaleId: sale._id, // ID của đợt Flash Sale
+          flashSaleTitle: sale.title, // Tên đợt (VD: Khung 9h-11h)
+          startTime: sale.startTime,
+
+          requestId: item._id, // ID của dòng đăng ký này (để gửi lên API duyệt)
+          seller: item.seller, // Thông tin người bán
+
+          productName: prod ? prod.name : "Sản phẩm đã bị xóa",
+          productImage: imageUrl,
+          originalPrice: item.originalPrice,
+          salePrice: item.salePrice,
+          limitQuantity: item.limitQuantity,
+          createdAt: item.createdAt, // Ngày gửi yêu cầu
+        });
       });
-      return saleObj;
     });
 
-    res.json({ success: true, data: formattedData });
+    res.json({ success: true, data: pendingRequests });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const approveFlashSale = async (req, res) => {
+  try {
+    const { flashSaleId, requestId } = req.body; // requestId là _id của item trong mảng products
+
+    // Tìm FlashSale có _id đó VÀ chứa product có _id là requestId
+    const updatedSale = await FlashSale.findOneAndUpdate(
+      {
+        _id: flashSaleId,
+        "products._id": requestId,
+      },
+      {
+        $set: {
+          "products.$.status": "approved", // Dấu $ đại diện cho phần tử tìm thấy
+          "products.$.rejectReason": "", // Xóa lý do từ chối nếu có
+        },
+      },
+      { new: true } // Trả về data mới sau update
+    );
+
+    if (!updatedSale) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Không tìm thấy yêu cầu này" });
+    }
+
+    res.json({ success: true, message: "Đã duyệt sản phẩm vào Flash Sale" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-export const approveFlashSale = async (req, res) => {
-  const adminId = req.user._id;
 
-  const sale = await FlashSale.findById(req.params.id);
-  if (!sale) return res.status(404).json({ message: "Không tồn tại" });
-
-  sale.status = "approved";
-  sale.approvedBy = adminId;
-
-  await sale.save();
-
-  res.json({ success: true, message: "Đã duyệt Flash Sale" });
-};
 export const rejectFlashSale = async (req, res) => {
-  const { reason } = req.body;
+  try {
+    const { flashSaleId, requestId, reason } = req.body;
 
-  const sale = await FlashSale.findByIdAndUpdate(
-    req.params.id,
-    {
-      status: "rejected",
-      rejectReason: reason,
-    },
-    { new: true }
-  );
+    if (!reason) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Vui lòng nhập lý do từ chối" });
+    }
 
-  res.json({ success: true, data: sale });
+    const updatedSale = await FlashSale.findOneAndUpdate(
+      {
+        _id: flashSaleId,
+        "products._id": requestId,
+      },
+      {
+        $set: {
+          "products.$.status": "rejected",
+          "products.$.rejectReason": reason,
+        },
+      },
+      { new: true }
+    );
+
+    if (!updatedSale) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Không tìm thấy yêu cầu này" });
+    }
+
+    res.json({ success: true, message: "Đã từ chối sản phẩm" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };

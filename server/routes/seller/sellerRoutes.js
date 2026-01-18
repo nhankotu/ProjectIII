@@ -19,11 +19,15 @@ import {
 } from "../../middleware/uploadMiddleware.js";
 import {
   getSellerFlashSales,
-  createFlashSaleRequest,
+  registerProductToFlashSale,
+  getAvailableFlashSales,
 } from "../../controllers/seller/flashSaleController.js";
 import { getFinancialOverview } from "../../controllers/seller/financialController.js";
 import { getSellerCategories } from "../../controllers/seller/categoryController.js";
-import { getSellerOrders } from "../../controllers/seller/orderController.js";
+import {
+  getSellerOrders,
+  updateOrderStatus,
+} from "../../controllers/seller/orderController.js";
 const router = express.Router();
 
 // 🔥 SỬA - THÊM requireAuth TRƯỚC requireSeller
@@ -64,8 +68,18 @@ router.post(
 );
 
 router.get("/flash-sales", requireAuth, requireSeller, getSellerFlashSales);
-
-router.post("/flash-sales", requireAuth, requireSeller, createFlashSaleRequest);
+router.get(
+  "/flash-sales/available",
+  requireAuth,
+  requireSeller,
+  getAvailableFlashSales
+);
+router.post(
+  "/flash-sales/register",
+  requireAuth,
+  requireSeller,
+  registerProductToFlashSale
+);
 
 // GET /api/seller/financial/overview?range=month
 router.get(
@@ -78,4 +92,6 @@ router.get(
 router.get("/categories", getSellerCategories);
 // GET /api/seller/orders - Lấy danh sách đơn hàng
 router.get("/orders", requireAuth, requireSeller, getSellerOrders);
+router.put("/orders/:id", requireAuth, requireSeller, updateOrderStatus);
+
 export default router;

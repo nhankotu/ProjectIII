@@ -19,7 +19,7 @@ import sellerRoutes from "./routes/seller/sellerRoutes.js";
 import sellerDashboardRoutes from "./routes/seller/sellerDashboard.js";
 
 // ✅ IMPORT CÁC ROUTES MỚI CHO customer
-import customerRoutes from "./routes/customer/index.js";
+import customerRoutes from "./routes/customer/customerRoutes.js";
 
 import { readFile } from "fs/promises";
 const swaggerFile = JSON.parse(

@@ -1,101 +1,103 @@
 import FlashSale from "../../models/FlashSale.js";
 import Product from "../../models/Product.js";
 
-// ✅ 1. THÊM HÀM HELPER NÀY ĐỂ FIX LỖI "getProductImage is not defined"
 const getProductImage = (product) => {
   if (!product) return null;
-  // Nếu ảnh là object (Cloudinary) -> lấy url
   if (product.image && typeof product.image === "object" && product.image.url) {
     return product.image.url;
   }
-  // Fallback: Check thumbnail hoặc images array
   return (
     product.thumbnail || (product.images && product.images[0]) || product.image
   );
 };
 
-// ➕ Gửi yêu cầu Flash Sale mới
-export const createFlashSaleRequest = async (req, res) => {
+export const getAvailableFlashSales = async (req, res) => {
+  try {
+    // Lấy các Flash Sale chưa kết thúc (endTime > hiện tại) và đang Active
+    const sales = await FlashSale.find({
+      isActive: true,
+      endTime: { $gt: new Date() },
+    }).select("title startTime endTime image");
+
+    res.json({ success: true, data: sales });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const registerProductToFlashSale = async (req, res) => {
   try {
     const sellerId = req.user._id;
-    const { title, startTime, endTime, products } = req.body;
+    // req.body cần: flashSaleId, productId, salePrice, limitQuantity
+    const { flashSaleId, productId, salePrice, limitQuantity } = req.body;
 
-    // 1. Validate dữ liệu đầu vào
-    if (!title || !startTime || !endTime || !products?.length) {
-      return res
-        .status(400)
-        .json({
-          message: "Vui lòng điền đầy đủ thông tin và chọn ít nhất 1 sản phẩm",
-        });
-    }
+    // 1. Kiểm tra Flash Sale có tồn tại và còn hạn không
+    const flashSale = await FlashSale.findOne({
+      _id: flashSaleId,
+      isActive: true,
+      endTime: { $gt: new Date() }, // Không thể đăng ký sự kiện đã qua
+    });
 
-    if (new Date(startTime) >= new Date(endTime)) {
-      return res
-        .status(400)
-        .json({ message: "Thời gian kết thúc phải sau thời gian bắt đầu" });
-    }
-
-    // 2. Validate từng sản phẩm
-    const validatedProducts = [];
-
-    for (const item of products) {
-      // 🔍 LƯU Ý: Đảm bảo Model Product của bạn có trường 'seller' hoặc 'sellerId'.
-      // Ở đây tôi dùng 'seller' (chuẩn thường dùng). Nếu DB bạn là 'sellerId', hãy đổi lại.
-      const product = await Product.findOne({
-        _id: item.product,
-        // seller: sellerId, // Mở comment dòng này nếu muốn check quyền sở hữu
-      });
-
-      if (!product) {
-        return res.status(400).json({
-          message: `Sản phẩm ID ${item.product} không hợp lệ hoặc không tồn tại.`,
-        });
-      }
-
-      // Check giá giảm
-      if (Number(item.salePrice) >= product.price) {
-        return res.status(400).json({
-          message: `Sản phẩm "${product.name}": Giá Sale (${item.salePrice}) phải thấp hơn giá gốc (${product.price}).`,
-        });
-      }
-
-      // Check tồn kho
-      if (Number(item.limitQuantity) > product.stock) {
-        return res.status(400).json({
-          message: `Sản phẩm "${product.name}": Số lượng đăng ký (${item.limitQuantity}) vượt quá tồn kho (${product.stock}).`,
-        });
-      }
-
-      validatedProducts.push({
-        product: product._id,
-        originalPrice: product.price,
-        salePrice: Number(item.salePrice),
-        limitQuantity: Number(item.limitQuantity) || 10,
-        soldQuantity: 0,
+    if (!flashSale) {
+      return res.status(404).json({
+        message: "Sự kiện Flash Sale không tồn tại hoặc đã kết thúc.",
       });
     }
 
-    // 3. Tạo Flash Sale
-    const flashSale = new FlashSale({
-      title,
-      startTime,
-      endTime,
-      products: validatedProducts,
-      createdBy: sellerId,
-      status: "pending",
+    // 2. Validate Sản phẩm (Thuộc về Seller này?)
+    const product = await Product.findOne({
+      _id: productId,
+      // seller: sellerId // Bỏ comment dòng này nếu DB Product có field seller
+    });
+
+    if (!product) {
+      return res.status(404).json({ message: "Sản phẩm không tồn tại." });
+    }
+
+    // 3. Validate Giá và Kho
+    if (Number(salePrice) >= product.price) {
+      return res
+        .status(400)
+        .json({ message: "Giá Sale phải thấp hơn giá gốc." });
+    }
+    if (Number(limitQuantity) > product.stock) {
+      return res
+        .status(400)
+        .json({ message: "Số lượng đăng ký vượt quá tồn kho hiện có." });
+    }
+
+    // 4. Kiểm tra xem sản phẩm này đã đăng ký trong sự kiện này chưa?
+    const isRegistered = flashSale.products.some(
+      (item) =>
+        item.product.toString() === productId &&
+        item.seller.toString() === sellerId.toString()
+    );
+
+    if (isRegistered) {
+      return res.status(400).json({
+        message: "Bạn đã đăng ký sản phẩm này trong khung giờ này rồi.",
+      });
+    }
+
+    // 5. PUSH vào mảng products
+    flashSale.products.push({
+      product: productId,
+      seller: sellerId, // QUAN TRỌNG: Để biết của ai
+      originalPrice: product.price,
+      salePrice: Number(salePrice),
+      limitQuantity: Number(limitQuantity),
+      status: "pending", // Mặc định chờ duyệt
     });
 
     await flashSale.save();
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
-      message:
-        "Đã gửi yêu cầu Flash Sale thành công. Vui lòng chờ Admin phê duyệt.",
-      data: flashSale,
+      message: "Đăng ký thành công! Vui lòng chờ Admin duyệt.",
     });
-  } catch (err) {
-    console.error("Lỗi tạo Flash Sale:", err);
-    res.status(500).json({ message: err.message });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -104,37 +106,53 @@ export const getSellerFlashSales = async (req, res) => {
   try {
     const sellerId = req.user._id;
 
-    const sales = await FlashSale.find({ createdBy: sellerId })
+    // 1. Tìm tất cả FlashSale mà Seller này có tham gia
+    const sales = await FlashSale.find({
+      "products.seller": sellerId,
+    })
       .populate({
         path: "products.product",
-        select: "name price thumbnail images stock",
+        select: "name price thumbnail images",
       })
-      .sort({ createdAt: -1 });
+      .sort({ startTime: -1 });
 
-    // Format lại dữ liệu
-    const formattedSales = sales.map((sale) => {
-      const saleObj = sale.toObject();
+    // 2. Format dữ liệu: Chỉ lấy ra những dòng product của Seller này
+    // (Vì FlashSale chứa product của nhiều người khác nữa)
+    const myRegistrations = [];
 
-      if (saleObj.products && Array.isArray(saleObj.products)) {
-        saleObj.products = saleObj.products.map((item) => {
-          if (!item.product) return item;
+    sales.forEach((sale) => {
+      // Lọc ra item của mình
+      const myItems = sale.products.filter(
+        (item) => item.seller && item.seller.toString() === sellerId.toString()
+      );
 
-          return {
-            ...item,
-            product: {
-              ...item.product,
-              thumbnail: getProductImage(item.product), // ✅ Hàm này giờ đã tồn tại
-            },
-          };
+      myItems.forEach((item) => {
+        // Xử lý ảnh
+        const prod = item.product;
+        let imageUrl = null;
+        if (prod) imageUrl = getProductImage(prod);
+
+        myRegistrations.push({
+          flashSaleId: sale._id,
+          flashSaleTitle: sale.title,
+          startTime: sale.startTime,
+          endTime: sale.endTime,
+
+          // Thông tin đăng ký
+          productId: prod ? prod._id : null,
+          productName: prod ? prod.name : "Sản phẩm đã xóa",
+          productImage: imageUrl,
+          salePrice: item.salePrice,
+          limitQuantity: item.limitQuantity,
+          soldQuantity: item.soldQuantity,
+          status: item.status, // pending, approved, rejected
+          rejectReason: item.rejectReason,
         });
-      }
-
-      return saleObj;
+      });
     });
 
-    res.json({ success: true, data: formattedSales });
+    res.json({ success: true, data: myRegistrations });
   } catch (error) {
-    console.error("Lỗi getSellerFlashSales:", error); // Log lỗi ra terminal
     res.status(500).json({ message: error.message });
   }
 };

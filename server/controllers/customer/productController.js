@@ -19,7 +19,7 @@ const formatProductImage = (product) => {
 };
 
 /* =========================================================
-   GET PRODUCTS (Pagination + Filter + Category Slug)
+   GET PRODUCTS ( Sort + Filter theo Shop)
    ========================================================= */
 export const getProducts = async (req, res) => {
   try {
@@ -27,18 +27,29 @@ export const getProducts = async (req, res) => {
     const limit = Number(req.query.limit) || 12;
     const skip = (page - 1) * limit;
 
-    /* ---------- FILTER CƠ BẢN ---------- */
+    /* ---------- 1. FILTER CƠ BẢN ---------- */
     const filter = {
       isActive: true,
       isDeleted: false,
       status: "active",
     };
-    /* ---------- FILTER: CATEGORY ID () ---------- */
+
+    // Filter: Category ID
     if (req.query.category) {
       filter.category = req.query.category;
     }
 
-    /* ---------- FILTER: CATEGORY SLUG (customer) ---------- */
+    // Filter: Brand
+    if (req.query.brand) {
+      filter.brand = req.query.brand;
+    }
+
+    // 🔥 Filter: Seller (QUAN TRỌNG CHO SHOP PAGE)
+    if (req.query.seller) {
+      filter.sellerId = req.query.seller; // Lọc sản phẩm của đúng Shop này
+    }
+
+    // Filter: Category Slug
     if (req.query.categorySlug) {
       const category = await Category.findOne({
         slug: req.query.categorySlug,
@@ -51,43 +62,71 @@ export const getProducts = async (req, res) => {
           message: "Danh mục không tồn tại",
         });
       }
-
       filter.category = category._id;
     }
 
-    /* ---------- FILTER: SEARCH ---------- */
+    // Filter: Search
     if (req.query.search) {
       filter.name = { $regex: req.query.search, $options: "i" };
     }
 
-    /* ---------- FILTER: BRAND ---------- */
-    if (req.query.brand) {
-      filter.brand = req.query.brand;
-    }
-
-    /* ---------- FILTER: PRICE RANGE ---------- */
+    // Filter: Price Range
     if (req.query.minPrice || req.query.maxPrice) {
       filter.price = {};
       if (req.query.minPrice) filter.price.$gte = Number(req.query.minPrice);
       if (req.query.maxPrice) filter.price.$lte = Number(req.query.maxPrice);
     }
 
-    /* ---------- QUERY DB ---------- */
+    /* ---------- 2. XỬ LÝ SẮP XẾP (SORT) ---------- */
+    let sortOption = { createdAt: -1 }; // Mặc định: Mới nhất
+
+    if (req.query.sort) {
+      switch (req.query.sort) {
+        case "price_asc": // Giá thấp -> cao
+          sortOption = { price: 1 };
+          break;
+        case "price_desc": // Giá cao -> thấp
+          sortOption = { price: -1 };
+          break;
+        case "sold_desc": // Bán chạy nhất
+          sortOption = { sold: -1 };
+          break;
+        case "rating_desc": // Đánh giá cao nhất
+          sortOption = { ratingAverage: -1 };
+          break;
+        case "name_asc": // Tên A-Z
+          sortOption = { name: 1 };
+          break;
+        case "newest": // Mới nhất
+        default:
+          sortOption = { createdAt: -1 };
+      }
+    }
+
+    /* ---------- 3. QUERY DATABASE ---------- */
     const products = await Product.find(filter)
       .populate("category", "name slug")
       .populate("brand", "name slug logo")
-      .sort({ createdAt: -1 })
+      .sort(sortOption) // 🔥 ÁP DỤNG BIẾN SORT DỘNG TẠI ĐÂY
       .skip(skip)
       .limit(limit)
-      .select("-description -shortDescription");
+      .select("-description -shortDescription"); // Bỏ bớt field nặng
 
     const total = await Product.countDocuments(filter);
 
-    /* ---------- FORMAT RESPONSE ---------- */
-    const formattedProducts = products.map((p) => ({
-      ...p.toObject(),
-      thumbnail: formatProductImage(p),
-    }));
+    /* ---------- 4. FORMAT RESPONSE ---------- */
+    // Helper function formatProductImage (Giả sử bạn đã có ở đầu file)
+    // Nếu chưa có thì dùng logic đơn giản bên dưới
+    const formattedProducts = products.map((p) => {
+      let thumbUrl = "https://via.placeholder.com/300";
+      if (p.thumbnail?.url) thumbUrl = p.thumbnail.url;
+      else if (typeof p.thumbnail === "string") thumbUrl = p.thumbnail;
+
+      return {
+        ...p.toObject(),
+        thumbnail: thumbUrl,
+      };
+    });
 
     res.json({
       success: true,
@@ -132,7 +171,11 @@ export const getProductById = async (req, res) => {
     }
 
     const productData = product.toObject();
+
     productData.thumbnail = formatProductImage(product);
+
+    productData.video =
+      product.video && product.video.url ? product.video : null;
 
     res.json({
       success: true,
@@ -209,6 +252,75 @@ export const getHotProducts = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message,
+    });
+  }
+};
+export const getProductsByCategory = async (req, res) => {
+  try {
+    const { slug } = req.params; // Lấy slug từ URL
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 12;
+    const skip = (page - 1) * limit;
+
+    // 1. Tìm danh mục trước
+    const category = await Category.findOne({
+      slug: slug,
+      isActive: true,
+    });
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Danh mục không tồn tại",
+      });
+    }
+
+    // 2. Filter sản phẩm theo Category ID tìm được
+    const filter = {
+      category: category._id,
+      isActive: true,
+      isDeleted: false,
+      status: "active",
+    };
+
+    // (Tuỳ chọn) Hỗ trợ thêm filter giá nếu Frontend có gửi
+    if (req.query.minPrice || req.query.maxPrice) {
+      filter.price = {};
+      if (req.query.minPrice) filter.price.$gte = Number(req.query.minPrice);
+      if (req.query.maxPrice) filter.price.$lte = Number(req.query.maxPrice);
+    }
+
+    // 3. Query sản phẩm
+    const products = await Product.find(filter)
+      .populate("category", "name slug")
+      .populate("brand", "name slug logo")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await Product.countDocuments(filter);
+
+    // 4. Format ảnh (Tái sử dụng hàm helper ở trên cùng file của bạn)
+    const formattedProducts = products.map((p) => ({
+      ...p.toObject(),
+      thumbnail: formatProductImage(p), // Hàm này bạn đã có sẵn ở đầu file
+    }));
+
+    res.json({
+      success: true,
+      data: formattedProducts,
+      pagination: {
+        page,
+        limit,
+        totalProducts: total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("❌ getProductsByCategory error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server",
     });
   }
 };

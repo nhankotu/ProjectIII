@@ -17,21 +17,14 @@ const OrderActions = ({ order, onUpdateStatus }) => {
       ],
       confirmed: [
         {
-          action: "pack",
-          label: "Đóng gói",
-          color: "bg-purple-600 hover:bg-purple-700",
+          action: "ship", // Sửa: Từ confirmed cho phép đi ship luôn hoặc pack
+          label: "Giao hàng",
+          color: "bg-orange-600 hover:bg-orange-700",
         },
         {
           action: "cancel",
           label: "Hủy đơn",
           color: "bg-red-600 hover:bg-red-700",
-        },
-      ],
-      packing: [
-        {
-          action: "ship",
-          label: "Giao hàng",
-          color: "bg-orange-600 hover:bg-orange-700",
         },
       ],
       shipping: [
@@ -41,7 +34,7 @@ const OrderActions = ({ order, onUpdateStatus }) => {
           color: "bg-green-600 hover:bg-green-700",
         },
       ],
-      completed: [],
+      delivered: [], // Đồng bộ với Enum "delivered" trong Model
       cancelled: [],
       returned: [],
     };
@@ -52,21 +45,23 @@ const OrderActions = ({ order, onUpdateStatus }) => {
   const handleAction = (action) => {
     const statusMap = {
       confirm: "confirmed",
-      pack: "packing",
       ship: "shipping",
-      complete: "completed",
+      complete: "delivered", // 🔥 Sửa: "completed" -> "delivered" cho khớp Model
       cancel: "cancelled",
     };
 
     if (statusMap[action]) {
-      onUpdateStatus(order.id, statusMap[action]);
+      // 🔥 Sửa: order.id -> order._id
+      onUpdateStatus(order._id || order.id, statusMap[action]);
     }
   };
 
   const availableActions = getAvailableActions(order.status);
 
   if (availableActions.length === 0) {
-    return <span className="text-sm text-gray-500">Không có thao tác</span>;
+    return (
+      <span className="text-sm text-gray-500 italic">Không có thao tác</span>
+    );
   }
 
   return (
@@ -74,8 +69,11 @@ const OrderActions = ({ order, onUpdateStatus }) => {
       {availableActions.map(({ action, label, color }) => (
         <button
           key={action}
-          onClick={() => handleAction(action)}
-          className={`px-3 py-1 text-xs text-white rounded-md transition-colors ${color}`}
+          onClick={(e) => {
+            e.stopPropagation(); // Ngăn việc bấm nút làm mở Modal chi tiết
+            handleAction(action);
+          }}
+          className={`px-3 py-1 text-xs text-white font-medium rounded-md shadow-sm transition-all active:scale-95 ${color}`}
         >
           {label}
         </button>

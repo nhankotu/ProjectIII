@@ -6,7 +6,7 @@ const brandSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      unique: true, // Tên thương hiệu không nên trùng
+      unique: true,
     },
     slug: {
       type: String,

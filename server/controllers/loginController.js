@@ -1,6 +1,6 @@
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
-
+import bcrypt from "bcrypt"; // Thêm dòng này
 export const loginUser = async (req, res) => {
   try {
     // 1. Nhận input (Lưu ý: biến username ở đây có thể là email do người dùng nhập)
@@ -18,7 +18,16 @@ export const loginUser = async (req, res) => {
     });
 
     // 3. Check Pass (Plain text mode)
-    if (!user || user.password !== password) {
+    if (!user) {
+      return res
+        .status(400)
+        .json({ message: "Tài khoản hoặc mật khẩu không chính xác." });
+    }
+
+    // bcrypt.compare(mật khẩu chưa mã hóa, mật khẩu đã mã hóa trong DB)
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
       return res
         .status(400)
         .json({ message: "Tài khoản hoặc mật khẩu không chính xác." });
