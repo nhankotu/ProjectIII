@@ -23,7 +23,7 @@ apiClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // Response: Xử lý dữ liệu trả về và lỗi Token hết hạn (401)
@@ -39,7 +39,7 @@ apiClient.interceptors.response.use(
     }
     // Trả về lỗi gọn gàng để hiển thị thông báo
     return Promise.reject(error.response?.data || { message: error.message });
-  }
+  },
 );
 
 // --- 3. ĐỊNH NGHĨA CÁC NHÓM API ---
@@ -56,7 +56,12 @@ export const productAPI = {
 
   // Tìm kiếm & Danh mục
   search: (query, params) =>
-    apiClient.get("/api/products/search", { params: { q: query, ...params } }),
+    apiClient.get("/api/products", {
+      params: {
+        search: query, // Backend đang hứng req.query.search
+        ...params, // Các params khác như page, limit
+      },
+    }),
   getByCategory: (slug, params) =>
     apiClient.get(`/api/categories/${slug}/products`, { params }),
   getCategories: () => apiClient.get("/api/categories"),
@@ -66,6 +71,9 @@ export const productAPI = {
     apiClient.get("/api/products", {
       params: { category: categoryId, limit: 5 },
     }),
+
+  getReviews: (productId) =>
+    apiClient.get(`/api/products/${productId}/reviews`),
 };
 
 // ➤ SHOP API (Bổ sung từ file cũ)
@@ -121,6 +129,30 @@ export const orderAPI = {
     apiClient.patch(`/api/order/${id}/cancel`, { reason }),
   upsertReview: (data) => apiClient.put("/api/reviews", data),
   deleteReview: (id) => apiClient.delete(`/api/reviews/${id}`),
+};
+
+// ➤ CHAT API (Thêm vào đây)
+export const chatAPI = {
+  createOrGetConversation: (receiverId) => {
+    return apiClient.post("/api/chat/conversation", { receiverId });
+  },
+
+  getUserConversations: () => {
+    return apiClient.get("/api/chat/conversations");
+  },
+
+  getMessages: (conversationId) => {
+    return apiClient.get(`/api/chat/messages/${conversationId}`);
+  },
+
+  sendMessage: (data) => {
+    const config =
+      data instanceof FormData
+        ? { headers: { "Content-Type": "multipart/form-data" } }
+        : {};
+
+    return apiClient.post("/api/chat/message", data, config);
+  },
 };
 
 export default apiClient;

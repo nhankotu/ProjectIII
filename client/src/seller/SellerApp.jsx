@@ -9,41 +9,43 @@ import OrderManagement from "./pages/OrderManagement";
 import InventoryManagement from "./pages/InventoryManagement";
 import FinancialManagement from "./pages/FinancialManagement";
 import ShopSettings from "./pages/ShopSetting";
-// 👇 1. IMPORT TRANG FLASH SALE MỚI
 import FlashSaleManagement from "./pages/FlashSaleManagement";
-
-// Import ProtectedRoute chung
+import ChatPage from "./pages/ChatPage";
+import ProductDetailPage from "./pages/ProductDetailPage";
 import ProtectedRoute from "../global/components/ProtectedRoute";
+
+import { SocketProvider } from "../contexts/SocketContext";
 
 const SellerApp = () => {
   return (
-    <Routes>
-      <Route
-        element={
-          // Bọc Layout bằng ProtectedRoute + Role Seller
-          <ProtectedRoute requiredRole="seller">
-            <SellerLayout />
-          </ProtectedRoute>
-        }
-      >
-        {/* Redirect mặc định vào dashboard */}
-        <Route index element={<Navigate to="dashboard" replace />} />
+    <SocketProvider>
+      <Routes>
+        <Route
+          element={
+            <ProtectedRoute requiredRole="seller">
+              <SellerLayout />
+            </ProtectedRoute>
+          }
+        >
+          {/* Redirect dashboard dùng đường dẫn tuyệt đối */}
+          <Route index element={<Navigate to="/seller/dashboard" replace />} />
 
-        {/* Các trang con */}
-        <Route path="dashboard" element={<SellerDashboard />} />
-        <Route path="products" element={<ProductManagement />} />
-        <Route path="orders" element={<OrderManagement />} />
-        <Route path="inventory" element={<InventoryManagement />} />
-        <Route path="finance" element={<FinancialManagement />} />
-        <Route path="shop" element={<ShopSettings />} />
+          <Route path="dashboard" element={<SellerDashboard />} />
+          <Route path="products" element={<ProductManagement />} />
+          <Route path="products/:id" element={<ProductDetailPage />} />
+          <Route path="orders" element={<OrderManagement />} />
+          <Route path="inventory" element={<InventoryManagement />} />
+          <Route path="finance" element={<FinancialManagement />} />
+          <Route path="shop" element={<ShopSettings />} />
+          <Route path="flash-sales" element={<FlashSaleManagement />} />
 
-        {/* 👇 2. THÊM ROUTE CHO FLASH SALE */}
-        <Route path="flash-sales" element={<FlashSaleManagement />} />
-      </Route>
+          {/* Route Chat */}
+          <Route path="messages" element={<ChatPage />} />
+        </Route>
 
-      {/* Route 404 nội bộ của Seller */}
-      <Route path="*" element={<Navigate to="dashboard" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/seller/dashboard" replace />} />
+      </Routes>
+    </SocketProvider>
   );
 };
 

@@ -1,5 +1,24 @@
 import mongoose from "mongoose";
 
+// --- SCHEMA BIẾN THỂ (SKU) ---
+const productVariantSchema = new mongoose.Schema(
+  {
+    sku: { type: String, required: true },
+    price: { type: Number, required: true },
+    originalPrice: { type: Number },
+    stock: { type: Number, default: 0 },
+
+    options: {
+      type: Object,
+      default: {},
+    },
+
+    image: { url: String, public_id: String },
+  },
+  { _id: false },
+);
+
+// --- SCHEMA CHÍNH ---
 const productSchema = new mongoose.Schema(
   {
     // ================= 1. THÔNG TIN CƠ BẢN =================
@@ -7,7 +26,7 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: [true, "Tên sản phẩm là bắt buộc"],
       trim: true,
-      index: "text", // Giúp tìm kiếm nhanh
+      index: "text",
     },
     slug: {
       type: String,
@@ -15,17 +34,10 @@ const productSchema = new mongoose.Schema(
       lowercase: true,
       index: true,
     },
-    description: {
-      type: String, // HTML content
-      required: [true, "Mô tả sản phẩm là bắt buộc"],
-    },
-    // 🔄 Đổi tên: short_description -> shortDescription
-    shortDescription: {
-      type: String,
-      maxlength: 300,
-    },
+    description: { type: String, required: true },
+    shortDescription: { type: String, maxlength: 300 },
 
-    // ================= 2. PHÂN LOẠI & LIÊN KẾT =================
+    // ================= 2. PHÂN LOẠI =================
     category: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
@@ -40,110 +52,109 @@ const productSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-    },
-
-    // ================= 3. GIÁ & KHO =================
-    price: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    // 🔄 Đổi tên: original_price -> originalPrice
-    originalPrice: {
-      type: Number,
-      min: 0,
-    },
-    stock: {
-      type: Number,
-      default: 0,
-    },
-    // 🔄 Đổi tên: sold_count -> sold (Cho gọn)
-    sold: {
-      type: Number,
-      default: 0,
-    },
-
-    // ================= 4. THUỘC TÍNH & TAGS =================
-    attributes: {
-      type: Map,
-      of: String,
-      default: {},
-    },
-    tags: [{ type: String, trim: true }],
-
-    // ================= 5. MEDIA (ẢNH & VIDEO) =================
-    // Lưu ý: Nếu không có ảnh, FE nên check length hoặc url
-    thumbnail: {
-      url: String,
-      public_id: String,
-    },
-    images: [
-      {
-        url: String,
-        public_id: String,
-      },
-    ],
-    video: {
-      url: String,
-      public_id: String,
-    },
-
-    // ================= 6. ĐÁNH GIÁ & TRẠNG THÁI =================
-    // 🔄 Đổi tên: rating_average -> ratingAverage
-    ratingAverage: {
-      type: Number,
-      default: 0,
-      min: 0,
-      max: 5,
-    },
-    // 🔄 Đổi tên: review_count -> reviewCount
-    reviewCount: {
-      type: Number,
-      default: 0,
-    },
-
-    // 🔄 Đổi tên: is_active -> isActive
-    isActive: {
-      type: Boolean,
-      default: true,
       index: true,
     },
-    // 🔄 Đổi tên: is_deleted -> isDeleted
-    isDeleted: {
-      type: Boolean,
-      default: false,
+
+    // ================= 3. GIÁ & BIẾN THỂ (QUAN TRỌNG) =================
+    type: {
+      type: String,
+      enum: ["simple", "variable"],
+      default: "simple",
     },
 
-    // ✅ MỚI: Thêm trường Status để quản lý quy trình duyệt
+    // Nếu là Simple Product thì dùng giá và kho ở đây
+    price: { type: Number, min: 0 },
+    originalPrice: { type: Number, min: 0 },
+    stock: { type: Number, default: 0 },
+
+    // Nếu là Variable Product thì dùng mảng variants
+    variants: [productVariantSchema],
+
+    variantAttributes: [
+      {
+        name: String,
+        values: [String],
+      },
+    ],
+
+    // ================= 4. VẬN CHUYỂN (BẮT BUỘC CHO API SHIP) =================
+    shipping: {
+      weight: { type: Number, required: true },
+      height: { type: Number, default: 0 },
+      length: { type: Number, default: 0 },
+      width: { type: Number, default: 0 },
+    },
+
+    // ================= 5. THÔNG SỐ KỸ THUẬT =================
+
+    specifications: [
+      {
+        name: String, // VD: "RAM"
+        value: String, // VD: "8GB"
+      },
+    ],
+
+    // ================= 6. MEDIA & THỐNG KÊ =================
+    thumbnail: { url: String, public_id: String },
+    images: [{ url: String, public_id: String }],
+    video: { url: String, public_id: String },
+
+    ratingAverage: { type: Number, default: 0, min: 0, max: 5, index: true },
+    reviewCount: { type: Number, default: 0 },
+    sold: { type: Number, default: 0, index: true },
+
+    // ================= 7. TRẠNG THÁI =================
+
     status: {
       type: String,
-      enum: ["active", "pending", "draft", "hidden", "rejected"],
+      enum: ["active", "draft", "hidden", "rejected", "deleted", "pending"],
       default: "active",
       index: true,
     },
   },
   {
-    timestamps: true, // Tự động tạo createdAt, updatedAt
+    timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-  }
+  },
 );
 
-// Middleware: Tự động tạo Slug trước khi lưu
+// Middleware: Tạo Slug + Random string ngắn để tránh trùng lặp 100%
 productSchema.pre("save", function (next) {
-  if (!this.slug && this.name) {
-    this.slug = this.name
+  if (this.isModified("name") || !this.slug) {
+    const baseSlug = this.name
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9 -]/g, "")
       .replace(/\s+/g, "-");
+
+    this.slug = `${baseSlug}-${Date.now().toString().slice(-4)}`;
+  }
+
+  if (this.type === "variable" && this.variants && this.variants.length > 0) {
+    // Cộng dồn stock của tất cả variant
+    const totalStock = this.variants.reduce((sum, variant) => {
+      return sum + (variant.stock || 0);
+    }, 0);
+
+    this.stock = totalStock;
   }
   next();
 });
+//khoang gia tri giu cac bien the
+productSchema.virtual("priceRange").get(function () {
+  if (this.type === "variable" && this.variants.length > 0) {
+    const prices = this.variants.map((v) => v.price);
+    return {
+      min: Math.min(...prices),
+      max: Math.max(...prices),
+    };
+  }
+  return null;
+});
+productSchema.index({ name: "text", shortDescription: "text" });
 
-// Ngăn lỗi OverwriteModelError khi hot-reload trong Next.js hoặc Dev mode
 const Product =
   mongoose.models.Product || mongoose.model("Product", productSchema);
-
 export default Product;

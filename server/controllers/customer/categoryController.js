@@ -1,31 +1,52 @@
 import Category from "../../models/Category.js";
 import Product from "../../models/Product.js";
 
-// 📋 Lấy danh sách danh mục (Kèm số lượng sản phẩm)
+const listToTree = (list) => {
+  const map = {};
+  const nodeIds = [];
+  const tree = [];
+
+  list.forEach((node, index) => {
+    map[node._id] = index;
+    nodeIds.push(node._id.toString());
+    // Thêm mảng children trống cho mỗi node
+    list[index].children = [];
+  });
+
+  list.forEach((node) => {
+    if (node.parent && nodeIds.includes(node.parent.toString())) {
+      // Nếu có cha và cha nằm trong danh sách, đẩy vào children của cha
+      list[map[node.parent]].children.push(node);
+    } else {
+      // Nếu không có cha hoặc cha không tồn tại trong list, đây là node gốc
+      tree.push(node);
+    }
+  });
+  return tree;
+};
 export const getCategories = async (req, res) => {
   try {
-    // Lấy danh mục đang hoạt động
+    // 1. Lấy danh mục đang hoạt động
     const categories = await Category.find({ isActive: true }).sort({
       order: 1,
       name: 1,
     });
 
-    // Tính toán productCount cho mỗi category
+    // 2. Tính toán productCount
     const categoriesWithCount = await Promise.all(
       categories.map(async (category) => {
-        // 🛠️ SỬA QUAN TRỌNG: Đếm sản phẩm dựa trên Model Product MỚI
+        // 🔥 ĐOẠN ĐÃ SỬA: Bỏ điều kiện isActive: true
         const productCount = await Product.countDocuments({
           category: category._id,
-          isActive: true, // Sản phẩm đang bật
-          isDeleted: false, // Sản phẩm chưa bị xóa
-          status: "active", // Sản phẩm đã duyệt
+          status: "active", // ✅ Chỉ cần cái này là đủ (Logs báo có 1)
+          isDeleted: { $ne: true }, // ✅ An toàn: chưa bị xóa
         });
 
         return {
           ...category.toObject(),
           productCount,
         };
-      })
+      }),
     );
 
     res.json({
@@ -105,20 +126,18 @@ export const getAllCategories = async (req, res) => {
 // 📂 Dành riêng cho Header / Menu
 export const getMenuCategories = async (req, res) => {
   try {
-    const categories = await Category.find({
-      isActive: true,
-    })
+    const categories = await Category.find({ isActive: true })
       .select("name slug image parent order")
-      .sort({ order: 1 });
+      .sort({ order: 1 })
+      .lean(); // Dùng .lean() để trả về plain JS object giúp thêm thuộc tính children dễ dàng
+
+    const categoryTree = listToTree(categories);
 
     res.json({
       success: true,
-      data: categories,
+      data: categoryTree,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };

@@ -1,8 +1,8 @@
 import React from "react";
 
 const MediaUpload = ({
-  selectedImages,
-  selectedVideos,
+  selectedImages = [],
+  selectedVideos = [],
   onImageSelect,
   onVideoSelect,
   onRemoveImage,

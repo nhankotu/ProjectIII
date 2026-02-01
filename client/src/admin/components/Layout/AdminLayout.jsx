@@ -12,6 +12,8 @@ import {
   Layers,
   Zap,
   Users,
+  BarChart3,
+  Store,
 } from "lucide-react";
 
 const AdminLayout = () => {
@@ -30,6 +32,16 @@ const AdminLayout = () => {
       path: "/admin/dashboard",
       label: "Tổng Quan",
       icon: <LayoutDashboard size={20} />,
+    },
+    {
+      path: "/admin/revenue/platform",
+      label: "Tài Chính Sàn",
+      icon: <BarChart3 size={20} />,
+    },
+    {
+      path: "/admin/revenue/shops",
+      label: "Doanh Thu Shop",
+      icon: <Store size={20} />,
     },
     { path: "/admin/products", label: "Sản Phẩm", icon: <Package size={20} /> },
     {

@@ -23,75 +23,156 @@ import {
   getAvailableFlashSales,
 } from "../../controllers/seller/flashSaleController.js";
 import { getFinancialOverview } from "../../controllers/seller/financialController.js";
-import { getSellerCategories } from "../../controllers/seller/categoryController.js";
+import {
+  getSellerCategories,
+  getSellerCategoryById,
+} from "../../controllers/seller/categoryController.js";
 import {
   getSellerOrders,
   updateOrderStatus,
+  getOrderStats,
 } from "../../controllers/seller/orderController.js";
+
+import {
+  getSellerConversations,
+  sendReply,
+  getSellerMessages,
+  markAsRead,
+} from "../../controllers/seller/sellerChatController.js";
+
+import {
+  getShopReviews,
+  getProductReviews,
+  replyToReview,
+  getShopReviewStats,
+  getProductReviewStats,
+} from "../../controllers/seller/SellerReviewController.js";
+
 const router = express.Router();
 
-// 🔥 SỬA - THÊM requireAuth TRƯỚC requireSeller
-// Danh sách sản phẩm của người bán
+// ============================================================
+// QUẢN LÝ SẢN PHẨM
+// ============================================================
 router.get("/products", requireAuth, requireSeller, getSellerProducts);
-
-// Thêm sản phẩm mới
 router.post(
   "/products",
   requireAuth,
   requireSeller,
   uploadForCloudinary,
-  addSellerProduct
+  addSellerProduct,
 );
 router.put(
   "/products/:id",
   requireAuth,
   requireSeller,
   uploadForCloudinary,
-  updateSellerProduct
+  updateSellerProduct,
 );
 router.delete("/products/:id", requireAuth, requireSeller, deleteSellerProduct);
-
 router.get("/products/:id", requireAuth, requireSeller, getSellerProductById);
-// GET /api/shop/settings - Lấy shop settings
-router.get("/settings", requireAuth, requireSeller, getShopSettings);
 
-// PUT /api/shop/settings - Cập nhật shop settings
-router.put("/settings", requireAuth, requireSeller, updateShopSettings);
-
-// POST /api/shop/settings/upload - Upload logo/banner
+// ============================================================
+// CÀI ĐẶT SHOP
+// ============================================================
+router.get("/shop/settings", requireAuth, requireSeller, getShopSettings);
+router.put("/shop/settings", requireAuth, requireSeller, updateShopSettings);
 router.post(
-  "/settings/upload",
-  requireAuth, // 👈 THIẾU requireAuth
+  "/shop/settings/upload",
+  requireAuth,
   requireSeller,
   uploadShopImageMemory,
-  uploadShopImage
+  uploadShopImage,
 );
 
+// ============================================================
+// FLASH SALE
+// ============================================================
 router.get("/flash-sales", requireAuth, requireSeller, getSellerFlashSales);
 router.get(
   "/flash-sales/available",
   requireAuth,
   requireSeller,
-  getAvailableFlashSales
+  getAvailableFlashSales,
 );
 router.post(
   "/flash-sales/register",
   requireAuth,
   requireSeller,
-  registerProductToFlashSale
+  registerProductToFlashSale,
 );
 
-// GET /api/seller/financial/overview?range=month
+// ============================================================
+// TÀI CHÍNH & DANH MỤC
+// ============================================================
 router.get(
   "/financial/overview",
-  requireAuth, // Bắt buộc đăng nhập
-  requireSeller, // Bắt buộc là Seller
-  getFinancialOverview // Controller xử lý
+  requireAuth,
+  requireSeller,
+  getFinancialOverview,
 );
-
 router.get("/categories", getSellerCategories);
-// GET /api/seller/orders - Lấy danh sách đơn hàng
+router.get("/categories/:id", requireAuth, getSellerCategoryById);
+
+// ============================================================
+// QUẢN LÝ ĐƠN HÀNG
+// ============================================================
+router.get("/orders/stats", requireAuth, requireSeller, getOrderStats);
 router.get("/orders", requireAuth, requireSeller, getSellerOrders);
 router.put("/orders/:id", requireAuth, requireSeller, updateOrderStatus);
+
+// ============================================================
+// 🔥 2. THÊM ROUTE CHO CHAT / MESSAGE
+// ============================================================
+// Lấy danh sách hội thoại (Inbox)
+router.get(
+  "/chat/conversations",
+  requireAuth,
+  requireSeller,
+  getSellerConversations,
+);
+
+// Lấy nội dung tin nhắn của 1 hội thoại cụ thể
+router.get(
+  "/chat/messages/:conversationId",
+  requireAuth,
+  requireSeller,
+  getSellerMessages,
+);
+
+// Gửi tin nhắn trả lời
+router.post(
+  "/chat/message",
+  requireAuth,
+  requireSeller,
+  uploadForCloudinary,
+  sendReply,
+);
+
+// Đánh dấu đã đọc
+router.put("/chat/read", requireAuth, requireSeller, markAsRead);
+
+// ============================================================
+// 🔥 3. THÊM ROUTE CHO REVIEW / ĐÁNH GIÁ
+// ============================================================
+
+router.get("/reviews", requireAuth, requireSeller, getShopReviews);
+
+router.get("/reviews/stats", requireAuth, requireSeller, getShopReviewStats);
+
+router.get("/products/:productId/reviews", getProductReviews);
+
+router.get(
+  "/products/:productId/reviews/stats",
+  requireAuth,
+  requireSeller,
+  getProductReviewStats,
+);
+
+router.put(
+  "/reviews/:reviewId/reply",
+  requireAuth,
+  requireSeller,
+  replyToReview,
+);
 
 export default router;

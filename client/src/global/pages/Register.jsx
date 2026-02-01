@@ -5,6 +5,7 @@ const API_BASE = import.meta.env.VITE_API_URL;
 function Register() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
+    name: "", // 🆕 THÊM TRƯỜNG NÀY
     username: "",
     email: "",
     password: "",
@@ -20,13 +21,17 @@ function Register() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Gửi thông tin đăng ký (có hoặc không có OTP)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
 
     // Validation
-    if (!formData.username || !formData.email || !formData.password) {
+    if (
+      !formData.name ||
+      !formData.username ||
+      !formData.email ||
+      !formData.password
+    ) {
       alert("Vui lòng nhập đầy đủ thông tin.");
       setIsLoading(false);
       return;
@@ -38,15 +43,15 @@ function Register() {
     }
 
     try {
-      // Chuẩn bị data để gửi
+      // 🆕 Chuẩn bị data (Đã thêm name)
       const requestData = {
+        name: formData.name, // <-- Quan trọng
         username: formData.username,
         email: formData.email,
         password: formData.password,
         role: formData.role,
       };
 
-      // Chỉ thêm OTP nếu người dùng đã nhập
       if (formData.otp && formData.otp.trim() !== "") {
         requestData.otp = formData.otp;
       }
@@ -60,25 +65,17 @@ function Register() {
       });
 
       const data = await res.json();
-      console.log("📨 Response từ server:", data);
 
       if (res.ok) {
         if (data.requiresOTP || !formData.otp) {
-          // Bước 1: OTP đã được gửi
-          alert(
-            data.message ||
-              "OTP đã được gửi đến email! Vui lòng kiểm tra và nhập OTP."
-          );
+          alert(data.message || "OTP đã được gửi! Vui lòng kiểm tra email.");
           setShowOTPModal(true);
         } else {
-          // Bước 2: Đăng ký thành công
           alert("Đăng ký thành công!");
           navigate("/login");
         }
       } else {
         alert(data.message || "Có lỗi xảy ra!");
-
-        // Nếu lỗi do OTP, vẫn hiển thị modal để nhập lại
         if (data.message?.includes("OTP")) {
           setShowOTPModal(true);
         }
@@ -91,27 +88,26 @@ function Register() {
     }
   };
 
-  // Xử lý xác nhận OTP
   const handleVerifyOTP = async () => {
     if (!formData.otp) {
       alert("Vui lòng nhập OTP.");
       return;
     }
-    await handleSubmit(new Event("submit")); // Gửi lại form với OTP
+    await handleSubmit(new Event("submit"));
   };
 
-  // Gửi lại OTP
   const handleResendOTP = async () => {
     try {
+      // 🆕 Gửi lại OTP cũng cần gửi kèm name để vượt qua validate của backend
       const res = await fetch(`${API_BASE}/api/users/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          name: formData.name, // <-- Quan trọng
           username: formData.username,
           email: formData.email,
           password: formData.password,
           role: formData.role,
-          // KHÔNG gửi OTP để trigger gửi OTP mới
         }),
       });
 
@@ -134,15 +130,27 @@ function Register() {
           Đăng ký tài khoản
         </h2>
         <form className="space-y-4" onSubmit={handleSubmit}>
+          {/* 🆕 Input Họ và tên */}
+          <input
+            type="text"
+            name="name"
+            placeholder="Họ và tên hiển thị"
+            value={formData.name}
+            onChange={handleChange}
+            className="w-full p-3 border rounded-lg"
+            required
+            disabled={showOTPModal}
+          />
+
           <input
             type="text"
             name="username"
-            placeholder="Tên đăng nhập"
+            placeholder="Tên đăng nhập (Username)"
             value={formData.username}
             onChange={handleChange}
             className="w-full p-3 border rounded-lg"
             required
-            disabled={showOTPModal} // Khóa form khi đang nhập OTP
+            disabled={showOTPModal}
           />
           <input
             type="email"
@@ -194,7 +202,7 @@ function Register() {
           </button>
         </form>
 
-        {/* OTP Modal */}
+        {/* OTP Modal (Giữ nguyên không đổi) */}
         {showOTPModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
             <div className="bg-white p-6 rounded-lg shadow-lg w-80">

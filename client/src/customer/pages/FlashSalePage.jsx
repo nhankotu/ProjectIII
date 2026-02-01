@@ -1,139 +1,118 @@
 import React, { useState, useEffect } from "react";
 import ProductCard from "../components/product/ProductCard";
-import { productAPI as productService, cartAPI } from "../services/api";
+import { productAPI as productService } from "../services/api";
+import LoadingSpinner from "../components/common/LoadingSpinner";
+import { Clock } from "lucide-react";
 
 const FlashSalePage = () => {
-  const [flashSaleItems, setFlashSaleItems] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
+  const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Fake timer
-  const [timeLeft, setTimeLeft] = useState({
-    hours: 12,
-    minutes: 0,
-    seconds: 0,
-  });
-
   useEffect(() => {
-    const fetchFlashSaleProducts = async () => {
+    const fetchFlashSale = async () => {
       try {
         setLoading(true);
         const response = await productService.getFlashSale();
-
-        // 1. Kiểm tra cấu trúc dữ liệu trả về
-        const campaigns = response.data?.data || response.data || [];
-
-        let allProducts = [];
-
-        if (Array.isArray(campaigns) && campaigns.length > 0) {
-          // 2. Lấy sản phẩm từ bên trong các chiến dịch (FLATTEN)
-          allProducts = campaigns.flatMap((campaign) => {
-            return campaign.products || [];
-          });
-        }
-
-        // 3. Fallback: Nếu không có Flash Sale nào, lấy sản phẩm thường demo
-        if (allProducts.length === 0) {
-          // console.warn("Flash sale trống, lấy sản phẩm thường demo...");
-          // const fallback = await productService.getFeaturedProducts();
-          // const fallbackData = fallback.data?.data || fallback.data || [];
-          // allProducts = Array.isArray(fallbackData) ? fallbackData : [];
-
-          // Tốt nhất là để trống để biết là không có Sale, thay vì hiện lung tung
-          allProducts = [];
-        }
-
-        setFlashSaleItems(allProducts);
+        setCampaigns(response.data || []);
       } catch (error) {
-        console.error("Lỗi tải trang Flash Sale:", error);
+        console.error("Lỗi tải Flash Sale:", error);
       } finally {
         setLoading(false);
       }
     };
-
-    fetchFlashSaleProducts();
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
-        if (prev.minutes > 0)
-          return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
-        if (prev.hours > 0)
-          return { hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        return { hours: 12, minutes: 0, seconds: 0 };
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
+    fetchFlashSale();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-12 text-center">
-        <div className="animate-pulse text-red-600 font-bold text-xl">
-          Đang tải Flash Sale...
-        </div>
-      </div>
-    );
-  }
+  const formatTime = (isoString) => {
+    const date = new Date(isoString);
+    return `${date.getHours().toString().padStart(2, "0")}:00`;
+  };
+
+  const getStatusText = (startTime, endTime) => {
+    const now = new Date();
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+
+    if (now >= start && now <= end) return "Đang diễn ra";
+    if (now < start) return "Sắp diễn ra";
+    return "Đã kết thúc";
+  };
+
+  if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="bg-red-50 min-h-screen pb-12">
-      {/* Banner Header */}
-      <div className="bg-gradient-to-r from-red-600 to-red-800 text-white py-12 mb-8 shadow-lg">
-        <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl font-bold mb-4 animate-bounce drop-shadow-md">
-            ⚡ FLASH SALE ⚡
-          </h1>
-          <p className="text-red-100 text-lg mb-6">
-            Săn deal giá sốc - Số lượng có hạn
-          </p>
-
-          {/* Countdown Clock */}
-          <div className="flex justify-center space-x-4">
-            {["Giờ", "Phút", "Giây"].map((label, idx) => {
-              const val =
-                idx === 0
-                  ? timeLeft.hours
-                  : idx === 1
-                  ? timeLeft.minutes
-                  : timeLeft.seconds;
-              return (
-                <div
-                  key={label}
-                  className="bg-white text-red-600 rounded-lg p-3 w-20 shadow-md transform hover:scale-105 transition-transform"
-                >
-                  <div className="text-3xl font-bold font-mono">
-                    {val.toString().padStart(2, "0")}
-                  </div>
-                  <div className="text-xs font-medium uppercase">{label}</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+    <div className="min-h-screen bg-gray-50 pb-12">
+      {/* Banner */}
+      <div className="bg-red-600 py-8 text-center text-white mb-6">
+        <h1 className="text-4xl font-black italic uppercase animate-pulse">
+          ⚡ Flash Sale ⚡
+        </h1>
+        <p className="mt-2 opacity-90 font-medium">Săn deal giá sốc mỗi ngày</p>
       </div>
 
-      {/* Product List */}
       <div className="container mx-auto px-4">
-        {flashSaleItems.length === 0 ? (
-          <div className="bg-white rounded-xl p-12 text-center shadow-sm">
-            <span className="text-6xl mb-4 block">😭</span>
-            <h3 className="text-xl font-bold text-gray-700">Tiếc quá!</h3>
-            <p className="text-gray-500">
-              Hiện tại chưa có chương trình Flash Sale nào đang diễn ra.
-            </p>
-            <p className="text-gray-500">Vui lòng quay lại sau nhé.</p>
-          </div>
+        {/* Timeline Tabs */}
+        {campaigns.length > 0 ? (
+          <>
+            <div className="flex overflow-x-auto gap-3 mb-8 pb-4 justify-center scrollbar-hide">
+              {campaigns.map((camp, index) => {
+                const isActive = index === activeTab;
+                return (
+                  <button
+                    key={camp.flashSaleId || index}
+                    onClick={() => setActiveTab(index)}
+                    className={`flex-shrink-0 min-w-[150px] px-6 py-4 rounded-2xl text-center transition-all border-2 
+                      ${
+                        isActive
+                          ? "bg-red-600 text-white border-red-600 shadow-xl scale-105"
+                          : "bg-white text-gray-600 border-transparent hover:border-red-200 shadow-sm"
+                      }`}
+                  >
+                    <div className="text-xl font-extrabold">
+                      {formatTime(camp.startTime)}
+                    </div>
+                    <div className="text-[11px] uppercase tracking-wider font-bold opacity-80 mt-1">
+                      {getStatusText(camp.startTime, camp.endTime)}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Product Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+              {campaigns[activeTab]?.products?.length > 0 ? (
+                campaigns[activeTab].products.map((item) => (
+                  <ProductCard
+                    key={item.productId}
+                    // 🔥 SỬA LỖI TẠI ĐÂY: Chuẩn hóa dữ liệu để ProductCard nhận diện được ID
+                    product={{
+                      ...item,
+                      _id: item.productId, // Gán productId vào _id để Link hoạt động
+                    }}
+                    isFlashSale={true}
+                  />
+                ))
+              ) : (
+                <div className="col-span-full bg-white rounded-2xl py-16 text-center text-gray-400 shadow-sm border border-dashed border-gray-300">
+                  <ShoppingBag size={48} className="mx-auto mb-3 opacity-20" />
+                  <p className="font-medium">
+                    Không có sản phẩm nào trong khung giờ này.
+                  </p>
+                </div>
+              )}
+            </div>
+          </>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-            {flashSaleItems.map((item, index) => (
-              <ProductCard
-                key={item._id || index}
-                product={item}
-                // ✅ QUAN TRỌNG: Bật chế độ hiển thị Flash Sale
-                isFlashSale={true}
-              />
-            ))}
+          <div className="text-center py-20 bg-white rounded-3xl shadow-sm border border-gray-100">
+            <Clock size={64} className="mx-auto text-gray-200 mb-6" />
+            <h3 className="text-2xl font-bold text-gray-700 mb-2">
+              Hiện tại chưa có chương trình Flash Sale nào
+            </h3>
+            <p className="text-gray-400">
+              Hẹn gặp lại bạn vào các khung giờ tiếp theo!
+            </p>
           </div>
         )}
       </div>

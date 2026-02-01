@@ -1,190 +1,218 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import { useOrders } from "../hooks/useOrders";
-import OrderFilters from "../components/order/OrderFilters";
 import OrderTable from "../components/order/OrderTable";
 import OrderDetailsModal from "../components/order/OrderDetailsModal";
+import { RefreshCcw, Search, Filter } from "lucide-react";
 
 const OrderManagement = () => {
-  // ✅ THÊM sellerId - lấy từ localStorage hoặc context
-  const getSellerId = () => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    return user._id || user.id;
-  };
+  // 1. Sử dụng Hook mới (Không cần truyền sellerId nữa)
+  const {
+    orders,
+    pagination,
+    filter,
+    loading,
+    stats,
+    updateOrderStatus,
+    changePage,
+    changeStatus,
+    refresh,
+  } = useOrders();
 
-  const sellerId = getSellerId();
-
-  const { orders, loading, updateOrderStatus, refetch, getOrderCounts } =
-    useOrders(sellerId);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [dateFilter, setDateFilter] = useState("all");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
-  // ✅ Filter orders với date filtering thực tế
-  const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
-      const matchesSearch =
-        order._id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.orderCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customer?.name
-          ?.toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        order.customer?.phone?.includes(searchTerm);
-
-      const matchesStatus =
-        statusFilter === "all" || order.status === statusFilter;
-
-      // ✅ DATE FILTERING THỰC TẾ
-      const matchesDate = (() => {
-        if (dateFilter === "all") return true;
-
-        const orderDate = new Date(order.createdAt);
-        const today = new Date();
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-
-        switch (dateFilter) {
-          case "today":
-            return orderDate.toDateString() === today.toDateString();
-          case "yesterday":
-            return orderDate.toDateString() === yesterday.toDateString();
-          case "week":
-            const weekAgo = new Date(today);
-            weekAgo.setDate(weekAgo.getDate() - 7);
-            return orderDate >= weekAgo;
-          case "month":
-            const monthAgo = new Date(today);
-            monthAgo.setMonth(monthAgo.getMonth() - 1);
-            return orderDate >= monthAgo;
-          default:
-            return true;
-        }
-      })();
-
-      return matchesSearch && matchesStatus && matchesDate;
-    });
-  }, [orders, searchTerm, statusFilter, dateFilter]);
+  // Lưu ý: Search Term hiện tại chưa được Backend hỗ trợ trong code trước
+  // Nếu muốn Search, bạn cần update Backend thêm regex tìm kiếm.
+  const [searchTerm, setSearchTerm] = useState("");
 
   const handleViewDetails = (order) => {
     setSelectedOrder(order);
     setShowDetailsModal(true);
   };
 
-  // ✅ Xử lý kết quả update status
   const handleUpdateStatus = async (orderId, newStatus) => {
     const result = await updateOrderStatus(orderId, newStatus);
     if (result.success) {
-      // Có thể thêm toast notification ở đây
-      console.log("✅ Cập nhật trạng thái thành công");
+      // Có thể thêm Toast notification tại đây
+      console.log("Cập nhật thành công");
     } else {
-      console.error("❌ Cập nhật thất bại:", result.error);
+      alert(result.message);
     }
   };
 
-  // ✅ Sử dụng getOrderCounts từ hook (nếu có) hoặc tính toán
-  const stats = useMemo(() => {
-    // Nếu hook đã có getOrderCounts thì dùng cái đó
-    if (getOrderCounts) {
-      return getOrderCounts();
-    }
-
-    // Fallback: tự tính toán
-    return {
-      total: orders.length,
-      pending: orders.filter((o) => o.status === "pending").length,
-      confirmed: orders.filter((o) => o.status === "confirmed").length,
-      shipping: orders.filter((o) => o.status === "shipping").length,
-      delivered: orders.filter((o) => o.status === "delivered").length, // ✅ SỬA "completed" → "delivered"
-      cancelled: orders.filter((o) => o.status === "cancelled").length,
-    };
-  }, [orders, getOrderCounts]);
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-lg">Đang tải đơn hàng...</div>
-      </div>
-    );
-  }
+  // Danh sách các tab trạng thái
+  const statusTabs = [
+    { id: "all", label: "Tất cả" },
+    { id: "pending", label: "Chờ xác nhận" },
+    { id: "confirmed", label: "Đã xác nhận" },
+    { id: "shipping", label: "Đang giao" },
+    { id: "delivered", label: "Đã giao" },
+    { id: "cancelled", label: "Đã huỷ" },
+  ];
 
   return (
-    <div className="p-6">
-      {/* Header */}
+    <div className="p-6 bg-gray-50 min-h-screen">
+      {/* HEADER & STATS SUMMARY */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Quản Lý Đơn Hàng</h1>
-        <p className="text-gray-600">Tổng số: {stats.total} đơn hàng</p>
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Quản Lý Đơn Hàng
+            </h1>
+            <p className="text-gray-500 text-sm">
+              Tổng số đơn hàng:{" "}
+              <span className="font-bold text-blue-600">
+                {pagination.totalDocs}
+              </span>
+            </p>
+          </div>
+          <button
+            onClick={refresh}
+            className="p-2 bg-white border rounded-full hover:bg-gray-100 transition shadow-sm"
+            title="Tải lại dữ liệu"
+          >
+            <RefreshCcw
+              size={20}
+              className={
+                loading ? "animate-spin text-blue-600" : "text-gray-600"
+              }
+            />
+          </button>
+        </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mt-4">
-          <div className="bg-white p-3 rounded-lg shadow-sm border">
-            <div className="text-2xl font-bold text-blue-600">
-              {stats.total}
-            </div>
-            <div className="text-sm text-gray-600">Tổng đơn</div>
-          </div>
-          <div className="bg-white p-3 rounded-lg shadow-sm border">
-            <div className="text-2xl font-bold text-yellow-600">
-              {stats.pending}
-            </div>
-            <div className="text-sm text-gray-600">Chờ xác nhận</div>
-          </div>
-          <div className="bg-white p-3 rounded-lg shadow-sm border">
-            <div className="text-2xl font-bold text-blue-600">
-              {stats.confirmed}
-            </div>
-            <div className="text-sm text-gray-600">Đã xác nhận</div>
-          </div>
-          <div className="bg-white p-3 rounded-lg shadow-sm border">
-            <div className="text-2xl font-bold text-orange-600">
-              {stats.shipping}
-            </div>
-            <div className="text-sm text-gray-600">Đang giao</div>
-          </div>
-          <div className="bg-white p-3 rounded-lg shadow-sm border">
-            <div className="text-2xl font-bold text-green-600">
-              {stats.delivered}
-            </div>
-            <div className="text-sm text-gray-600">Đã giao</div>{" "}
-            {/* ✅ SỬA "Hoàn thành" → "Đã giao" */}
-          </div>
-          <div className="bg-white p-3 rounded-lg shadow-sm border">
-            <div className="text-2xl font-bold text-red-600">
-              {stats.cancelled}
-            </div>
-            <div className="text-sm text-gray-600">Đã huỷ</div>
-          </div>
+        {/* STATS CARDS  */}
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+          <StatCard
+            label="Tổng đơn"
+            value={stats.total}
+            color="text-blue-600"
+          />
+          <StatCard
+            label="Chờ xác nhận"
+            value={stats.pending}
+            color="text-yellow-600"
+          />
+          <StatCard
+            label="Đã xác nhận"
+            value={stats.confirmed}
+            color="text-blue-600"
+          />
+          <StatCard
+            label="Đang giao"
+            value={stats.shipping}
+            color="text-orange-600"
+          />
+          <StatCard
+            label="Đã giao"
+            value={stats.delivered}
+            color="text-green-600"
+          />
+          <StatCard
+            label="Đã huỷ"
+            value={stats.cancelled}
+            color="text-red-600"
+          />
         </div>
       </div>
 
-      <OrderFilters
-        searchTerm={searchTerm}
-        statusFilter={statusFilter}
-        dateFilter={dateFilter}
-        onSearchChange={setSearchTerm}
-        onStatusFilterChange={setStatusFilter}
-        onDateFilterChange={setDateFilter}
-        onRefresh={refetch}
-      />
+      {/* FILTER BAR */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 space-y-4">
+        {/* 1. Status Tabs */}
+        <div className="flex flex-wrap gap-2 border-b border-gray-100 pb-4">
+          {statusTabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => changeStatus(tab.id)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all
+              ${
+                filter.status === tab.id
+                  ? "bg-blue-50 text-blue-700 border border-blue-200 shadow-sm"
+                  : "text-gray-600 hover:bg-gray-50 border border-transparent"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-      {/* ✅ Hiển thị thông báo khi không có orders */}
-      {filteredOrders.length === 0 ? (
-        <div className="text-center py-8 bg-white rounded-lg shadow-sm border">
-          <div className="text-gray-500 text-lg">
-            {orders.length === 0
-              ? "Chưa có đơn hàng nào"
-              : "Không tìm thấy đơn hàng phù hợp"}
+        {/* 2. Search & Tools (Search chưa hoạt động với Backend hiện tại) */}
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              size={18}
+            />
+            <input
+              type="text"
+              placeholder="Tìm kiếm mã đơn, tên khách hàng... (Cần update BE)"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          {/* Nút lọc nâng cao (Date) - Tạm ẩn vì BE chưa support */}
+          <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">
+            <Filter size={18} /> <span>Lọc ngày</span>
+          </button>
+        </div>
+      </div>
+
+      {/* TABLE CONTENT */}
+      {loading ? (
+        <div className="flex justify-center items-center h-64 bg-white rounded-xl shadow-sm border">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-500 text-sm">Đang tải dữ liệu...</p>
           </div>
         </div>
+      ) : orders.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-xl shadow-sm border">
+          <div className="text-gray-400 mb-3">📦</div>
+          <p className="text-gray-500">
+            Không tìm thấy đơn hàng nào ở trang này.
+          </p>
+        </div>
       ) : (
-        <OrderTable
-          orders={filteredOrders}
-          onUpdateStatus={handleUpdateStatus}
-          onViewDetails={handleViewDetails}
-        />
+        <>
+          <OrderTable
+            orders={orders} // Truyền trực tiếp, không cần filter client
+            onUpdateStatus={handleUpdateStatus}
+            onViewDetails={handleViewDetails}
+          />
+
+          {/* PAGINATION UI */}
+          <div className="flex justify-between items-center mt-6 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <div className="text-sm text-gray-500">
+              Hiển thị trang{" "}
+              <span className="font-bold text-gray-800">{pagination.page}</span>{" "}
+              trên tổng số{" "}
+              <span className="font-bold text-gray-800">
+                {pagination.totalPages}
+              </span>{" "}
+              trang
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                disabled={pagination.page <= 1}
+                onClick={() => changePage(pagination.page - 1)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+              >
+                Trước
+              </button>
+              <button
+                disabled={pagination.page >= pagination.totalPages}
+                onClick={() => changePage(pagination.page + 1)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors shadow-sm"
+              >
+                Sau
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
-      {/* Order Details Modal */}
+      {/* MODAL CHI TIẾT */}
       {showDetailsModal && (
         <OrderDetailsModal
           order={selectedOrder}
@@ -199,4 +227,10 @@ const OrderManagement = () => {
   );
 };
 
+const StatCard = ({ label, value, color }) => (
+  <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-100 flex flex-col items-center justify-center">
+    <div className={`text-2xl font-bold ${color}`}>{value}</div>
+    <div className="text-xs text-gray-500 mt-1">{label}</div>
+  </div>
+);
 export default OrderManagement;

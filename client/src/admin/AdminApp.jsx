@@ -10,6 +10,8 @@ import ProductsPage from "./pages/ProductsPage";
 import UsersPage from "./pages/UsersPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
 import ProtectedRoute from "../global/components/ProtectedRoute";
+import RevenuePlatformPage from "./pages/RevenuePlatformPage";
+import RevenueShopsPage from "./pages/RevenueShopsPage";
 // 2. Import Layout
 import AdminLayout from "./components/Layout/AdminLayout";
 
@@ -28,28 +30,18 @@ const AdminApp = () => {
           </ProtectedRoute>
         }
       >
-        {/* Đường dẫn mặc định: /admin -> redirect sang /admin/dashboard */}
         <Route index element={<Navigate to="dashboard" replace />} />
-
-        {/* Các trang con (Lưu ý: không có dấu / ở đầu) */}
-        {/* URL thực tế: /admin/dashboard */}
         <Route path="dashboard" element={<DashboardPage />} />
 
-        {/* URL thực tế: /admin/flash-sales */}
+        <Route path="revenue/platform" element={<RevenuePlatformPage />} />
+        <Route path="revenue/shops" element={<RevenueShopsPage />} />
+
         <Route path="flash-sales" element={<FlashSalesPage />} />
-
-        {/* URL thực tế: /admin/categories */}
         <Route path="categories" element={<CategoriesPage />} />
-
-        {/* URL thực tế: /admin/products */}
         <Route path="products" element={<ProductsPage />} />
         <Route path="products/:id" element={<ProductDetailPage />} />
-
-        {/* URL thực tế: /admin/users */}
         <Route path="users" element={<UsersPage />} />
       </Route>
-
-      {/* Route 404 nội bộ của Admin */}
       <Route path="*" element={<Navigate to="dashboard" replace />} />
     </Routes>
   );

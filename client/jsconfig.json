@@ -17,6 +17,6 @@
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["src"],
+  "include": ["src", "src/customer/components/layout/.jsx"],
   "exclude": ["node_modules", "dist", "build"]
 }

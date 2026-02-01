@@ -1,6 +1,6 @@
 import User from "../../models/User.js";
 import Shop from "../../models/Shop.js"; // Import model Shop để đồng bộ trạng thái
-
+import Product from "../../models/Product.js";
 // ✅ 1. Duyệt Seller (Mở khóa tài khoản & Kích hoạt Shop)
 export const approveSeller = async (req, res) => {
   try {
@@ -10,7 +10,7 @@ export const approveSeller = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       id,
       { isActive: true },
-      { new: true }
+      { new: true },
     );
 
     if (!user) {
@@ -21,13 +21,13 @@ export const approveSeller = async (req, res) => {
 
     // Bước 2: Nếu user là Seller, phải Active luôn cái Shop của họ
     if (user.role === "seller") {
-      const shop = await Shop.findOneAndUpdate(
-        { owner: user._id },
-        { status: "active" }, // Chuyển trạng thái Shop sang hoạt động
-        { new: true }
-      );
-
-      // (Optional) Gửi email thông báo: "Shop của bạn đã được duyệt!"
+      await Promise.all([
+        Shop.findOneAndUpdate(
+          { owner: user._id },
+          { status: "active" }, // Chuyển trạng thái Shop sang hoạt động
+          { new: true },
+        ),
+      ]);
     }
 
     res.status(200).json({
@@ -54,7 +54,7 @@ export const banUser = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       id,
       { isActive: false },
-      { new: true }
+      { new: true },
     );
 
     if (!user) {
@@ -65,7 +65,10 @@ export const banUser = async (req, res) => {
 
     // Bước 2: Nếu là Seller, phải khóa luôn Shop (để ẩn sản phẩm)
     if (user.role === "seller") {
-      await Shop.findOneAndUpdate({ owner: user._id }, { status: "banned" });
+      await Promise.all([
+        Shop.findOneAndUpdate({ owner: user._id }, { status: "banned" }),
+        Product.updateMany({ sellerId: user._id }, { status: "hidden" }),
+      ]);
     }
 
     res.status(200).json({
@@ -117,7 +120,7 @@ export const unbanUser = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       id,
       { isActive: true },
-      { new: true }
+      { new: true },
     );
 
     if (!user) {
@@ -128,10 +131,16 @@ export const unbanUser = async (req, res) => {
 
     // Bước 2: Nếu là Seller, mở lại Shop (Chuyển từ 'banned' về 'active')
     if (user.role === "seller") {
-      await Shop.findOneAndUpdate(
-        { owner: user._id },
-        { status: "active" } // Hoặc 'pending' tùy quy trình của bạn
-      );
+      await Promise.all([
+        Shop.findOneAndUpdate(
+          { owner: user._id },
+          { status: "active" }, // Hoặc 'pending' tùy quy trình của bạn
+        ),
+        Product.updateMany(
+          { sellerId: user._id, status: "hidden" },
+          { status: "active" },
+        ),
+      ]);
     }
 
     res.status(200).json({

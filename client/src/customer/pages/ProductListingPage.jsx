@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import ProductCard from "../components/product/ProductCard";
 import { useCart } from "../../contexts/CartContext";
-// Import Alias: productService đại diện cho productAPI
 import { productAPI as productService } from "../services/api";
 
 const ProductListingPage = () => {
@@ -11,30 +10,38 @@ const ProductListingPage = () => {
   const searchQuery = searchParams.get("q");
 
   const { addToCart } = useCart();
+  const formatCurrencyInput = (value) => {
+    if (!value) return "";
+    // Xóa hết ký tự không phải số trước khi format
+    const rawValue = value.toString().replace(/\D/g, "");
+    return rawValue.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  };
 
+  // Hàm biến chuỗi có dấu chấm thành số để lưu State: "1.000.000" -> 1000000
+  const parseCurrencyInput = (value) => {
+    if (!value) return 0;
+    return Number(value.toString().replace(/\./g, ""));
+  };
   // State dữ liệu
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // State bộ lọc giao diện
+  // --- STATE BỘ LỌC (Gửi lên Server) ---
   const [sortBy, setSortBy] = useState("newest");
-  const [priceRange, setPriceRange] = useState([0, 50000000]);
-  const [selectedBrands, setSelectedBrands] = useState([]);
+  const [priceRange, setPriceRange] = useState([0, 100000000]);
+
+  // --- STATE TẠM (Để nhập liệu không bị lag) ---
+  const [tempPriceRange, setTempPriceRange] = useState([0, 100000000]);
+
   const [showFilters, setShowFilters] = useState(false);
 
-  // 1. LẤY DANH SÁCH DANH MỤC (Cho Sidebar)
+  // 1. LẤY DANH MỤC
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        // 🔥 SỬA: Dùng hàm getCategories để lấy list, không dùng getByCategory (lấy sản phẩm)
         const response = await productService.getCategories();
-
-        // Xử lý data an toàn
-        let data = [];
-        if (response && Array.isArray(response.data)) data = response.data;
-        else if (Array.isArray(response)) data = response;
-
+        let data = Array.isArray(response) ? response : response.data || [];
         setCategories(data);
       } catch (error) {
         console.error("Lỗi lấy danh mục:", error);
@@ -43,112 +50,73 @@ const ProductListingPage = () => {
     fetchCategories();
   }, []);
 
-  // 2. LẤY SẢN PHẨM (Logic quan trọng nhất)
+  // 2. LẤY SẢN PHẨM (Server-side Filtering)
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
+
+        const params = {
+          page: 1,
+          limit: 12,
+          sort: sortBy,
+          // 🔥 QUAN TRỌNG: Dùng priceRange (đã chốt) để gọi API, KHÔNG dùng tempPriceRange
+          minPrice: priceRange[0],
+          maxPrice: priceRange[1],
+        };
+
         let response;
-
-        // 👇 CHỐT CHẶN: Kiểm tra kỹ biến categorySlug
-        const hasCategory =
-          categorySlug &&
-          categorySlug !== "undefined" &&
-          categorySlug !== "null";
-
         if (searchQuery) {
-          // Case 1: Tìm kiếm
-          response = await productService.search(searchQuery);
-        } else if (hasCategory) {
-          // Case 2: Có danh mục hợp lệ -> Gọi API theo danh mục
-          // console.log("Lấy theo danh mục:", categorySlug);
-          response = await productService.getByCategory(categorySlug);
+          response = await productService.search(searchQuery, params);
+        } else if (categorySlug && categorySlug !== "undefined") {
+          response = await productService.getByCategory(categorySlug, params);
         } else {
-          // Case 3: Không có gì -> Lấy tất cả
-          // console.log("Lấy tất cả sản phẩm");
-          response = await productService.getAll();
+          response = await productService.getAll(params);
         }
 
-        // Xử lý data trả về (Hỗ trợ cả dạng {data: []} và dạng [])
         let data = [];
         if (response && Array.isArray(response.data)) data = response.data;
         else if (Array.isArray(response)) data = response;
-        else if (response?.products) data = response.products;
 
         setProducts(data);
       } catch (error) {
         console.error("Lỗi lấy sản phẩm:", error);
-        setProducts([]); // Set rỗng để không crash
+        setProducts([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchProducts();
-  }, [categorySlug, searchQuery]);
-
-  // --- Tách thương hiệu từ sản phẩm ---
-  const brands = useMemo(() => {
-    const brandSet = new Set();
-    products.forEach((p) => {
-      if (p.brand) {
-        const brandName = typeof p.brand === "object" ? p.brand.name : p.brand;
-        if (brandName) brandSet.add(brandName);
-      }
-    });
-    return Array.from(brandSet);
-  }, [products]);
-
-  // 3. LOGIC LỌC & SẮP XẾP (Client-side)
-  const filteredProducts = useMemo(() => {
-    let result = [...products];
-
-    // Lọc giá
-    result = result.filter(
-      (p) => (p.price || 0) >= priceRange[0] && (p.price || 0) <= priceRange[1]
-    );
-
-    // Lọc thương hiệu
-    if (selectedBrands.length > 0) {
-      result = result.filter((p) => {
-        const pBrandName = typeof p.brand === "object" ? p.brand.name : p.brand;
-        return selectedBrands.includes(pBrandName);
-      });
-    }
-
-    // Sắp xếp
-    result.sort((a, b) => {
-      switch (sortBy) {
-        case "price_asc":
-          return (a.price || 0) - (b.price || 0);
-        case "price_desc":
-          return (b.price || 0) - (a.price || 0);
-        case "name_asc":
-          return (a.name || "").localeCompare(b.name || "");
-        default: // newest
-          return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-      }
-    });
-
-    return result;
-  }, [products, priceRange, selectedBrands, sortBy]);
+  }, [categorySlug, searchQuery, sortBy, priceRange]); // Dependency là priceRange
 
   // --- Handlers ---
-  const handleBrandToggle = (brandName) => {
-    setSelectedBrands((prev) =>
-      prev.includes(brandName)
-        ? prev.filter((b) => b !== brandName)
-        : [...prev, brandName]
-    );
+
+  // Xử lý khi gõ phím (Chỉ cập nhật số trên ô input, chưa gọi API)
+  const handlePriceInputChange = (index, value) => {
+    const newRange = [...tempPriceRange];
+
+    newRange[index] = parseCurrencyInput(value);
+    setTempPriceRange(newRange);
+  };
+
+  // Xử lý khi gõ xong (Enter hoặc click ra ngoài) -> Mới gọi API
+  const applyPriceFilter = () => {
+    // Chỉ cập nhật nếu giá trị thực sự thay đổi để tránh gọi API thừa
+    if (
+      tempPriceRange[0] !== priceRange[0] ||
+      tempPriceRange[1] !== priceRange[1]
+    ) {
+      setPriceRange(tempPriceRange);
+    }
   };
 
   const clearFilters = () => {
-    setPriceRange([0, 50000000]);
-    setSelectedBrands([]);
+    setPriceRange([0, 100000000]);
+    setTempPriceRange([0, 100000000]); // Reset cả số trên ô input
     setSortBy("newest");
   };
 
-  // Tìm tên danh mục hiện tại để hiển thị Title
   const currentCategory = categories.find((cat) => cat.slug === categorySlug);
 
   if (loading) {
@@ -170,7 +138,7 @@ const ProductListingPage = () => {
               : currentCategory?.name || "Tất cả sản phẩm"}
           </h1>
           <p className="text-gray-500 mt-1">
-            Hiển thị {filteredProducts.length} sản phẩm
+            Hiển thị {products.length} sản phẩm
           </p>
         </div>
 
@@ -183,6 +151,7 @@ const ProductListingPage = () => {
             <option value="newest">Mới nhất</option>
             <option value="price_asc">Giá: Thấp đến Cao</option>
             <option value="price_desc">Giá: Cao đến Thấp</option>
+            <option value="sold_desc">Bán chạy nhất</option>
             <option value="name_asc">Tên: A-Z</option>
           </select>
 
@@ -248,66 +217,46 @@ const ProductListingPage = () => {
               </ul>
             </div>
 
-            {/* Khoảng giá */}
+            {/* 🔥 SỬA LỖI NHẬP GIÁ Ở ĐÂY */}
             <div className="mb-8">
               <h4 className="font-semibold mb-3 text-sm text-gray-900 uppercase tracking-wide">
-                Khoảng giá
+                Khoảng giá (VNĐ)
               </h4>
               <div className="flex items-center gap-2 mb-2">
+                {/* Ô MIN */}
                 <input
-                  type="number"
-                  value={priceRange[0]}
-                  onChange={(e) =>
-                    setPriceRange([Number(e.target.value), priceRange[1]])
-                  }
+                  type="text" // ⚠️ Đổi thành text để hiện dấu chấm
+                  value={formatCurrencyInput(tempPriceRange[0])} // ⚠️ Format khi hiển thị
+                  onChange={(e) => handlePriceInputChange(0, e.target.value)}
+                  onBlur={applyPriceFilter}
+                  onKeyDown={(e) => e.key === "Enter" && applyPriceFilter()}
                   className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                  placeholder="Min"
+                  placeholder="0"
                 />
-                <span className="text-gray-400">-</span>
-                <input
-                  type="number"
-                  value={priceRange[1]}
-                  onChange={(e) =>
-                    setPriceRange([priceRange[0], Number(e.target.value)])
-                  }
-                  className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                  placeholder="Max"
-                />
-              </div>
-            </div>
 
-            {/* Thương hiệu */}
-            {brands.length > 0 && (
-              <div>
-                <h4 className="font-semibold mb-3 text-sm text-gray-900 uppercase tracking-wide">
-                  Thương hiệu
-                </h4>
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                  {brands.map((brandName) => (
-                    <label
-                      key={brandName}
-                      className="flex items-center space-x-3 cursor-pointer group"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedBrands.includes(brandName)}
-                        onChange={() => handleBrandToggle(brandName)}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                      />
-                      <span className="text-sm text-gray-600 group-hover:text-blue-600 transition-colors">
-                        {brandName}
-                      </span>
-                    </label>
-                  ))}
-                </div>
+                <span className="text-gray-400">-</span>
+
+                {/* Ô MAX */}
+                <input
+                  type="text" // ⚠️ Đổi thành text
+                  value={formatCurrencyInput(tempPriceRange[1])} // ⚠️ Format khi hiển thị
+                  onChange={(e) => handlePriceInputChange(1, e.target.value)}
+                  onBlur={applyPriceFilter}
+                  onKeyDown={(e) => e.key === "Enter" && applyPriceFilter()}
+                  className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                  placeholder="100.000.000"
+                />
               </div>
-            )}
+              <p className="text-xs text-gray-400 italic">
+                Nhập giá (VD: 500.000) và nhấn Enter
+              </p>
+            </div>
           </div>
         </aside>
 
         {/* Product Grid */}
         <div className="flex-1">
-          {filteredProducts.length === 0 ? (
+          {products.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
               <div className="text-6xl mb-4">🔍</div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
@@ -325,11 +274,12 @@ const ProductListingPage = () => {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {filteredProducts.map((product) => (
+              {products.map((product) => (
                 <ProductCard
                   key={product._id || product.id}
                   product={product}
-                  onAddToCart={addToCart} // Truyền hàm giỏ hàng xuống
+                  isFlashSale={product.isFlashSale}
+                  onAddToCart={addToCart}
                 />
               ))}
             </div>

@@ -1,6 +1,6 @@
 import express from "express";
 import { requireAuth } from "../../middleware/authMiddleware.js";
-
+import { uploadForCloudinary } from "../../middleware/uploadMiddleware.js";
 // --- IMPORT CONTROLLERS ---
 import {
   getCategories,
@@ -36,6 +36,7 @@ import {
   getCart,
   removeFromCart,
   updateCartItem,
+  clearCart,
 } from "../../controllers/customer/cartController.js";
 
 import {
@@ -47,7 +48,16 @@ import {
 import {
   upsertReview,
   deleteReview,
+  getProductReviews,
 } from "../../controllers/customer/reviewController.js";
+
+import {
+  createOrGetConversation,
+  getUserConversations,
+  sendMessage,
+  getMessages,
+} from "../../controllers/customer/chatController.js";
+
 const router = express.Router();
 
 // ====================================================
@@ -90,7 +100,7 @@ router.get("/cart", requireAuth, getCart);
 router.post("/cart/add", requireAuth, addToCart);
 router.put("/cart/update", requireAuth, updateCartItem);
 router.delete("/cart/remove/:itemId", requireAuth, removeFromCart);
-
+router.delete("/cart", requireAuth, clearCart);
 // --- ORDERS (Đơn hàng) ---
 router.post("/order", requireAuth, createOrder);
 router.get("/order", requireAuth, getUserOrders);
@@ -98,6 +108,14 @@ router.patch("/order/:id/cancel", requireAuth, cancelOrder);
 router.get("/order/:id", requireAuth, getOrderDetail);
 
 //--- review...
-router.put("/reviews", requireAuth, upsertReview); // Tạo hoặc Sửa
-router.delete("/reviews/:id", requireAuth, deleteReview); // Xóa
+router.put("/reviews", requireAuth, upsertReview);
+router.delete("/reviews/:id", requireAuth, deleteReview);
+router.get("/products/:id/reviews", getProductReviews);
+// Conversation
+router.post("/chat/conversation", requireAuth, createOrGetConversation);
+router.get("/chat/conversations", requireAuth, getUserConversations);
+
+// Message
+router.post("/chat/message", requireAuth, uploadForCloudinary, sendMessage);
+router.get("/chat/messages/:conversationId", requireAuth, getMessages);
 export default router;

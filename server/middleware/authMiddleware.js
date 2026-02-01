@@ -1,16 +1,16 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
+// ================= 1. REQUIRE AUTH =================
 export const requireAuth = async (req, res, next) => {
   try {
-    console.log("🔐 Auth middleware called");
-
+    // 1. Lấy token từ header
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
-        message: "Access denied. No token provided.",
+        message: "Truy cập bị từ chối. Vui lòng đăng nhập.",
       });
     }
 
@@ -19,109 +19,104 @@ export const requireAuth = async (req, res, next) => {
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: "Access denied. Invalid token format.",
+        message: "Token không hợp lệ.",
       });
     }
 
-    // 🔥 Dùng CÙNG secret với login
-    const JWT_SECRET = process.env.JWT_SECRET;
-    console.log("🔑 Verifying with hardcoded secret");
+    // 2. Verify Token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-    console.log("✅ Token decoded:", decoded);
-
+    // 3. Tìm User trong DB (Bỏ qua password)
     const user = await User.findById(decoded.id).select("-password");
 
+    // 4. Các trường hợp User không hợp lệ
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "User not found. Token is invalid.",
+        message: "Tài khoản không tồn tại.",
       });
     }
 
+    // 🔥 QUAN TRỌNG: Check xem user có bị khóa không?
+    if (user.isActive === false) {
+      return res.status(403).json({
+        success: false,
+        message: "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Admin.",
+      });
+    }
+
+    // 5. Gán user vào request để dùng ở controller tiếp theo
     req.user = user;
-    console.log("✅ User authenticated:", user.username);
+
+    // Log email cho chắc chắn vì username có thể null
+    // console.log("✅ Auth Success:", user.email);
 
     next();
   } catch (error) {
-    console.error("❌ Auth middleware error:", error.message);
+    console.error("❌ Auth Error:", error.message);
+
+    // Xử lý riêng lỗi hết hạn
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({
+        success: false,
+        message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+        code: "TOKEN_EXPIRED", // Frontend dựa vào code này để auto logout
+      });
+    }
 
     if (error.name === "JsonWebTokenError") {
       return res.status(401).json({
         success: false,
-        message: "Invalid token: " + error.message,
+        message: "Token không hợp lệ.",
       });
     }
 
-    res.status(500).json({
-      success: false,
-      message: "Server error in authentication.",
-    });
+    res.status(500).json({ success: false, message: "Lỗi xác thực hệ thống." });
   }
 };
 
+// ================= 2. REQUIRE SELLER =================
 export const requireSeller = async (req, res, next) => {
   try {
-    console.log("👨‍💼 Seller middleware called");
-
-    // Đảm bảo requireAuth đã chạy trước
+    // Middleware này chạy SAU requireAuth nên chắc chắn đã có req.user
     if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Vui lòng đăng nhập trước",
-      });
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    // Kiểm tra role - điều chỉnh logic theo model User của bạn
+    // Admin luôn có quyền của Seller
     const allowedRoles = ["seller", "admin"];
 
     if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message: "Truy cập bị từ chối. Yêu cầu quyền seller.",
-        userRole: req.user.role,
+        message: "Chức năng chỉ dành cho Người bán (Seller).",
       });
     }
 
-    console.log("✅ Seller authorized:", req.user.username);
     next();
   } catch (error) {
-    console.error("❌ Seller middleware error:", error.message);
-    res.status(500).json({
-      success: false,
-      message: "Lỗi server khi xác thực quyền seller.",
-    });
+    console.error("Seller Auth Error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server." });
   }
 };
+
+// ================= 3. REQUIRE ADMIN =================
 export const requireAdmin = async (req, res, next) => {
   try {
-    console.log("👮 Admin middleware called");
-
-    // 1. Đảm bảo requireAuth đã chạy và user đã đăng nhập
     if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Vui lòng đăng nhập trước khi thực hiện thao tác này.",
-      });
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    // 2. Kiểm tra quyền Admin
-    // Lưu ý: So sánh chính xác chuỗi "admin"
     if (req.user.role !== "admin") {
       return res.status(403).json({
         success: false,
-        message: "Truy cập bị từ chối. Chỉ Admin mới có quyền này.",
-        userRole: req.user.role, // Trả về role hiện tại để debug dễ hơn
+        message: "Truy cập bị từ chối. Chỉ dành cho Admin.",
       });
     }
 
-    console.log("✅ Admin authorized:", req.user.username);
     next();
   } catch (error) {
-    console.error("❌ Admin middleware error:", error.message);
-    res.status(500).json({
-      success: false,
-      message: "Lỗi server khi xác thực quyền Admin.",
-    });
+    console.error("Admin Auth Error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server." });
   }
 };

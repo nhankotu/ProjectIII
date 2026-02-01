@@ -5,51 +5,73 @@ import ProductTable from "../components/product/ProductTable";
 import ProductModal from "../components/product/ProductModal";
 
 const ProductManagement = () => {
+  // Hook lấy dữ liệu từ API (Đã bao gồm logic tạo FormData bên trong)
   const { products, loading, addProduct, updateProduct, deleteProduct } =
     useProducts();
+
+  // State quản lý UI
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
 
-  const handleAddProduct = async (productData) => {
-    const result = await addProduct(productData);
+  // 1. Xử lý Thêm mới
+  // Lưu ý: payload nhận vào là Object thuần từ ProductForm
+  const handleAddProduct = async (productPayload) => {
+    const result = await addProduct(productPayload);
+
     if (result.success) {
       setShowAddModal(false);
-      alert(result.message);
+      alert("✅ Thêm sản phẩm thành công!");
     } else {
-      alert(result.message);
+      alert("❌ Lỗi: " + result.message);
     }
   };
 
+  // 2. Xử lý mở Modal Sửa
   const handleEditProduct = (product) => {
+    // Không cần format dữ liệu thủ công ở đây nữa
+    // ProductForm mới sẽ tự xử lý việc lấy _id của category/brand
     setEditingProduct(product);
     setShowEditModal(true);
   };
 
-  const handleUpdateProduct = async (productData) => {
+  // 3. Xử lý Cập nhật (Submit form sửa)
+  const handleUpdateProduct = async (productPayload) => {
     if (!editingProduct) return;
 
-    const result = await updateProduct(editingProduct.id, productData);
+    // Hook updateProduct sẽ tự convert productPayload thành FormData
+    const result = await updateProduct(editingProduct._id, productPayload);
+
     if (result.success) {
       setShowEditModal(false);
       setEditingProduct(null);
       alert("✅ Cập nhật sản phẩm thành công!");
     } else {
-      alert(result.message);
+      alert("❌ Lỗi: " + result.message);
     }
   };
 
+  // 4. Xử lý Xóa
   const handleDeleteProduct = async (productId) => {
-    const result = await deleteProduct(productId);
-    return result; // Trả về kết quả để ProductRow hiển thị thông báo
+    if (window.confirm("Bạn có chắc chắn muốn xóa sản phẩm này không?")) {
+      const result = await deleteProduct(productId);
+      if (result.success) {
+        alert("✅ Đã xóa sản phẩm");
+      } else {
+        alert("❌ Lỗi xóa: " + result.message);
+      }
+    }
   };
 
+  // 5. Cập nhật nhanh Tồn kho (Quick Edit trên bảng)
   const handleUpdateStock = async (productId, newStock) => {
-    await updateProduct(productId, { stock: newStock });
+    // Gửi Object thường, Hook sẽ tự xử lý
+    await updateProduct(productId, { stock: parseInt(newStock) });
   };
 
+  // 6. Cập nhật nhanh Trạng thái (Quick Edit trên bảng)
   const handleUpdateStatus = async (productId, newStatus) => {
     await updateProduct(productId, { status: newStatus });
   };
@@ -58,61 +80,80 @@ const ProductManagement = () => {
     setEditingProduct(null);
   };
 
-  if (loading) {
+  if (loading && products.length === 0) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="text-lg">Đang tải sản phẩm...</div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <span className="ml-4 text-lg font-medium text-gray-600">
+          Đang tải dữ liệu...
+        </span>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Quản Lý Sản Phẩm</h1>
-        <p className="text-gray-600">Tổng số: {products.length} sản phẩm</p>
+    <div className="p-6 bg-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="mb-6 flex justify-between items-end">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Quản Lý Sản Phẩm</h1>
+          <p className="text-gray-600 mt-1">
+            Tổng số:{" "}
+            <span className="font-bold text-blue-600">{products.length}</span>{" "}
+            sản phẩm
+          </p>
+        </div>
       </div>
 
+      {/* Filter & Search Bar */}
       <SearchFilter
         searchTerm={searchTerm}
         onSearchChange={(e) => setSearchTerm(e.target.value)}
         statusFilter={statusFilter}
         onStatusFilterChange={(e) => setStatusFilter(e.target.value)}
         onAddProduct={() => setShowAddModal(true)}
-        totalProducts={products.length}
       />
 
-      <ProductTable
-        products={products}
-        onEditProduct={handleEditProduct}
-        onUpdateStock={handleUpdateStock}
-        onUpdateStatus={handleUpdateStatus}
-        onDeleteProduct={handleDeleteProduct}
-        searchTerm={searchTerm}
-        statusFilter={statusFilter}
-      />
+      {/* Main Table */}
+      <div className="mt-6">
+        <ProductTable
+          products={products}
+          onEditProduct={handleEditProduct}
+          onUpdateStock={handleUpdateStock}
+          onUpdateStatus={handleUpdateStatus}
+          onDeleteProduct={handleDeleteProduct}
+          searchTerm={searchTerm}
+          statusFilter={statusFilter}
+        />
+      </div>
 
-      <ProductModal
-        isOpen={showAddModal}
-        onClose={() => {
-          setShowAddModal(false);
-          resetForm();
-        }}
-        title="Thêm sản phẩm mới"
-        onSubmit={handleAddProduct}
-      />
+      {/* Modal Thêm Mới */}
+      {showAddModal && (
+        <ProductModal
+          isOpen={showAddModal}
+          onClose={() => {
+            setShowAddModal(false);
+            resetForm();
+          }}
+          title="Thêm sản phẩm mới"
+          onSubmit={handleAddProduct} // Truyền hàm xử lý vào đây
+        />
+      )}
 
-      <ProductModal
-        isOpen={showEditModal}
-        onClose={() => {
-          setShowEditModal(false);
-          resetForm();
-        }}
-        title="Sửa sản phẩm"
-        isEditing={true}
-        onSubmit={handleUpdateProduct}
-        product={editingProduct}
-      />
+      {/* Modal Chỉnh Sửa */}
+      {showEditModal && (
+        <ProductModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            resetForm();
+          }}
+          title="Cập nhật sản phẩm"
+          isEditing={true}
+          product={editingProduct}
+          onSubmit={handleUpdateProduct} // Truyền hàm xử lý vào đây
+        />
+      )}
     </div>
   );
 };

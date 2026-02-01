@@ -1,58 +1,45 @@
 import { useState, useEffect, useCallback } from "react";
-
-// Nếu chưa có .env thì dùng localhost:5000
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+// Import các hàm API từ service
+import { flashSaleApi, productApi } from "../services/api";
 
 const useFlashSale = () => {
-  const [flashSales, setFlashSales] = useState([]); // Danh sách các chiến dịch
-  const [products, setProducts] = useState([]); // Danh sách sản phẩm của Shop để chọn
+  const [flashSales, setFlashSales] = useState([]);
+  const [availableEvents, setAvailableEvents] = useState([]);
+  const [products, setProducts] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem("token");
-    return {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    };
-  };
-
+  // ============================================================
+  // 1. FETCH DATA (Gọi song song 3 API)
+  // ============================================================
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const headers = getAuthHeaders();
-
-      const [flashSaleRes, productRes] = await Promise.all([
-        fetch(`${API_BASE}/api/seller/flash-sales`, { headers }),
-        fetch(`${API_BASE}/api/seller/products?limit=100`, { headers }),
+      // Promise.all giúp gọi song song, tiết kiệm thời gian chờ
+      const [myRegsRes, eventsRes, productRes] = await Promise.all([
+        flashSaleApi.getSellerFlashSales(),
+        flashSaleApi.getAvailable(),
+        productApi.getAll({ limit: 100 }), // Lấy 100 sp để chọn cho dễ
       ]);
 
-      const checkResponse = async (res, name) => {
-        if (res.status === 500)
-          throw new Error(`Lỗi Server (500) khi gọi ${name}`);
-        const contentType = res.headers.get("content-type");
-        if (contentType && contentType.indexOf("application/json") === -1) {
-          throw new Error(`API ${name} trả về HTML.`);
-        }
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.message || "Lỗi tải dữ liệu");
-        }
-        return res.json();
-      };
+      // 1. Set danh sách đăng ký
+      if (myRegsRes.success) {
+        setFlashSales(myRegsRes.data || []);
+      }
 
-      const flashSaleData = await checkResponse(flashSaleRes, "Flash Sale");
-      const productData = await checkResponse(productRes, "Sản phẩm");
+      // 2. Set sự kiện đang mở
+      if (eventsRes.success) {
+        setAvailableEvents(eventsRes.data || []);
+      }
 
-      // BE trả về { success: true, data: [...] }
-      setFlashSales(flashSaleData.data || []);
-
-      const prodList = productData.products || productData.data || [];
+      const prodList = productRes.data || productRes.products || [];
       setProducts(Array.isArray(prodList) ? prodList : []);
     } catch (err) {
-      console.error(err);
-      setError(err.message);
+      console.error("Lỗi tải dữ liệu FlashSale:", err);
+      // Lấy message lỗi chuẩn từ Axios
+      setError(err.response?.data?.message || err.message || "Lỗi tải dữ liệu");
     } finally {
       setLoading(false);
     }
@@ -62,35 +49,32 @@ const useFlashSale = () => {
     fetchData();
   }, [fetchData]);
 
-  // Hàm tạo chiến dịch (Campaign)
-  const createFlashSale = async (payload) => {
+  // ============================================================
+  // 2. REGISTER FUNCTION
+  // ============================================================
+  const registerProduct = async (payload) => {
     try {
-      const headers = getAuthHeaders();
-      const response = await fetch(`${API_BASE}/api/seller/flash-sales`, {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(payload),
-      });
+      const res = await flashSaleApi.register(payload);
 
-      const resData = await response.json();
-
-      if (!response.ok) {
-        throw new Error(resData.message || "Lỗi khi tạo Flash Sale");
+      if (res.success) {
+        await fetchData();
+        return { success: true, message: res.message };
+      } else {
+        return { success: false, message: res.message };
       }
-
-      await fetchData();
-      return { success: true, data: resData };
     } catch (err) {
-      return { success: false, message: err.message };
+      const msg = err.response?.data?.message || err.message || "Lỗi đăng ký";
+      return { success: false, message: msg };
     }
   };
 
   return {
     flashSales,
+    availableEvents,
     products,
     loading,
     error,
-    createFlashSale,
+    registerProduct,
     refresh: fetchData,
   };
 };

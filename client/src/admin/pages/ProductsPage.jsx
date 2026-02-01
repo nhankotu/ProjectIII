@@ -5,7 +5,7 @@ import { Eye, Check, X, Ban, Trash2 } from "lucide-react";
 const ProductsPage = () => {
   const { products, loading, fetchProducts, updateStatus, deleteProduct } =
     useAdminProducts();
-  const [filter, setFilter] = useState("pending"); // Mặc định xem hàng chờ duyệt
+  const [filter, setFilter] = useState("active"); // Mặc định xem hàng chờ duyệt
 
   useEffect(() => {
     fetchProducts({ status: filter });
@@ -59,7 +59,6 @@ const ProductsPage = () => {
                   />
                   <div>
                     <div className="font-medium line-clamp-1">{p.name}</div>
-                    <div className="text-xs text-gray-500">Kho: {p.stock}</div>
                   </div>
                 </td>
                 <td className="p-4 font-medium">{p.price.toLocaleString()}đ</td>

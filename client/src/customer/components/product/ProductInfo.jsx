@@ -1,15 +1,21 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 const ProductInfo = ({
   product,
   selectedQuantity,
-  selectedVariant,
+  selectedVariant, // Biến thể đã tìm thấy (từ cha truyền xuống)
   onQuantityChange,
-  onVariantSelect,
+  onVariantSelect, // Hàm báo cho cha biết đã tìm thấy biến thể nào
 }) => {
-  const [selectedColor, setSelectedColor] = useState(null);
-  const [selectedSize, setSelectedSize] = useState(null);
+  // State lưu các lựa chọn hiện tại của user. VD: { "Màu": "Trắng", "Size": "L" }
+  const [currentSelections, setCurrentSelections] = useState({});
 
+  // Reset selection khi đổi sản phẩm
+  useEffect(() => {
+    setCurrentSelections({});
+  }, [product._id]);
+
+  // Helper format tiền
   const formatPrice = (price) => {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
@@ -17,40 +23,72 @@ const ProductInfo = ({
     }).format(price);
   };
 
-  // Extract variants by type
-  const colorVariants =
-    product.variants?.filter((v) => v.type === "color") || [];
-  const sizeVariants = product.variants?.filter((v) => v.type === "size") || [];
-  const otherVariants =
-    product.variants?.filter((v) => !["color", "size"].includes(v.type)) || [];
-
-  const handleColorSelect = (color) => {
-    setSelectedColor(color);
-    onVariantSelect?.(color);
-  };
-
-  const handleSizeSelect = (size) => {
-    setSelectedSize(size);
-    onVariantSelect?.(size);
-  };
-
-  const calculateDiscount = () => {
-    if (product.originalPrice && product.originalPrice > product.price) {
-      const discount =
-        ((product.originalPrice - product.price) / product.originalPrice) * 100;
-      return Math.round(discount);
+  // Tính % giảm giá
+  const calculateDiscount = (original, current) => {
+    if (original && original > current) {
+      return Math.round(((original - current) / original) * 100);
     }
     return 0;
   };
 
-  const discount = calculateDiscount();
+  // Giá hiển thị: Ưu tiên giá của Variant nếu đã chọn, không thì lấy giá gốc
+  const displayPrice = selectedVariant ? selectedVariant.price : product.price;
+  const displayOriginalPrice = product.originalPrice; // Variant thường ít khi có originalPrice riêng trong model đơn giản, dùng chung của Product
+  const discount = calculateDiscount(displayOriginalPrice, displayPrice);
+
+  // Stock hiển thị
+  const displayStock = selectedVariant ? selectedVariant.stock : product.stock;
+
+  // Xử lý khi user click chọn thuộc tính (Màu/Size)
+  const handleAttributeSelect = (attributeName, value) => {
+    const newSelections = { ...currentSelections, [attributeName]: value };
+    setCurrentSelections(newSelections);
+
+    // 🔥 LOGIC QUAN TRỌNG:
+    // Sau khi chọn xong, thử tìm xem có variant nào khớp với bộ options này không
+    // Cần đảm bảo dữ liệu `variants` trong DB có trường `options` đầy đủ
+    if (product.variants && product.variants.length > 0) {
+      const foundVariant = product.variants.find((v) => {
+        // So sánh options của variant với selection của user
+        // Lưu ý: Cần so khớp tất cả các keys
+        if (!v.options) return false;
+
+        // Kiểm tra xem variant này có chứa tất cả các lựa chọn hiện tại không
+        const isMatch = Object.keys(newSelections).every(
+          (key) => v.options[key] === newSelections[key]
+        );
+
+        // Và đảm bảo số lượng keys khớp nhau (để tránh trường hợp chọn thiếu)
+        // (Tuỳ logic, ở đây mình tìm match gần nhất trước)
+        return isMatch;
+      });
+
+      // Nếu tìm thấy (hoặc user đang chọn dở), gửi lên cha
+      // Ở đây logic tốt nhất là: Nếu User chọn ĐỦ thuộc tính -> Gửi variant hoàn chỉnh
+      // Nếu chưa đủ -> Gửi null để disable nút mua
+
+      const totalAttributes = product.variantAttributes?.length || 0;
+      const selectedCount = Object.keys(newSelections).length;
+
+      if (foundVariant && selectedCount === totalAttributes) {
+        onVariantSelect(foundVariant);
+      } else {
+        onVariantSelect(null); // Chưa chọn xong
+      }
+    }
+  };
+
+  // Kiểm tra xem một giá trị thuộc tính có đang được chọn không
+  const isSelected = (name, value) => currentSelections[name] === value;
 
   return (
     <div className="space-y-6">
-      {/* Product Title */}
-      <h1 className="text-3xl font-bold text-gray-900">{product.name}</h1>
+      {/* 1. Tên sản phẩm */}
+      <h1 className="text-3xl font-bold text-gray-900 leading-tight">
+        {product.name}
+      </h1>
 
-      {/* Rating & Reviews */}
+      {/* 2. Rating & Sold (Dùng field mới: ratingAverage, sold) */}
       <div className="flex items-center space-x-4">
         <div className="flex items-center">
           <div className="flex text-yellow-400">
@@ -58,7 +96,7 @@ const ProductInfo = ({
               <svg
                 key={i}
                 className={`w-5 h-5 ${
-                  i < Math.floor(product.rating || 0)
+                  i < Math.floor(product.ratingAverage || 0)
                     ? "fill-current"
                     : "fill-gray-300"
                 }`}
@@ -69,253 +107,136 @@ const ProductInfo = ({
             ))}
           </div>
           <span className="ml-2 font-medium text-gray-700">
-            {product.rating || "0.0"}
+            {product.ratingAverage || "0.0"}
           </span>
         </div>
 
-        <span className="text-gray-400">•</span>
+        <span className="text-gray-300">|</span>
 
         <div className="text-gray-600">
-          <span className="font-medium">{product.reviewCount || 0}</span>{" "}
-          reviews
+          <span className="font-medium text-black">
+            {product.reviewCount || 0}
+          </span>{" "}
+          đánh giá
         </div>
 
-        <span className="text-gray-400">•</span>
+        <span className="text-gray-300">|</span>
 
         <div className="text-gray-600">
-          <span className="font-medium">{product.soldCount || 0}</span> sold
+          <span className="font-medium text-black">{product.sold || 0}</span> đã
+          bán
         </div>
       </div>
 
-      {/* Price Section */}
-      <div className="space-y-2">
-        <div className="flex items-center space-x-4">
+      {/* 3. Giá tiền */}
+      <div className="p-4 bg-gray-50 rounded-lg">
+        <div className="flex items-baseline space-x-3">
           <span className="text-3xl font-bold text-red-600">
-            {formatPrice(product.price)}
+            {formatPrice(displayPrice)}
           </span>
 
           {discount > 0 && (
             <>
-              <span className="text-xl text-gray-400 line-through">
-                {formatPrice(product.originalPrice)}
+              <span className="text-lg text-gray-400 line-through">
+                {formatPrice(displayOriginalPrice)}
               </span>
-              <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-bold">
-                -{discount}%
+              <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded text-xs font-bold uppercase">
+                Giảm {discount}%
               </span>
             </>
           )}
         </div>
-
-        {discount > 0 && (
-          <p className="text-green-600 text-sm">
-            You save {formatPrice(product.originalPrice - product.price)}!
-          </p>
-        )}
       </div>
 
-      {/* Stock Status */}
-      <div className="flex items-center space-x-3">
-        <span
-          className={`px-3 py-1 rounded-full text-sm font-medium ${
-            product.stock > 10
-              ? "bg-green-100 text-green-800"
-              : product.stock > 0
-              ? "bg-yellow-100 text-yellow-800"
-              : "bg-red-100 text-red-800"
-          }`}
-        >
-          {product.stock > 10
-            ? "In Stock"
-            : product.stock > 0
-            ? `Only ${product.stock} left!`
-            : "Out of Stock"}
-        </span>
+      {/* 4. Render các thuộc tính (Màu, Size...) từ variantAttributes */}
+      {product.variantAttributes && product.variantAttributes.length > 0 && (
+        <div className="space-y-5">
+          {product.variantAttributes.map((attr) => (
+            <div key={attr._id || attr.name}>
+              <h3 className="text-sm font-medium text-gray-900 mb-2">
+                {attr.name}:{" "}
+                <span className="text-gray-500 font-normal">
+                  {currentSelections[attr.name]}
+                </span>
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {attr.values.map((value) => {
+                  const active = isSelected(attr.name, value);
 
-        {product.stock > 0 && (
-          <div className="w-32 bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-green-500 h-2 rounded-full"
-              style={{
-                width: `${Math.min(
-                  100,
-                  ((product.soldCount || 0) /
-                    (product.soldCount + product.stock)) *
-                    100
-                )}%`,
-              }}
-            />
-          </div>
-        )}
-      </div>
+                  // Logic hiển thị nút khác nhau tuỳ tên thuộc tính (Optional)
+                  // Nếu là "Màu" hoặc "Color" thì hiển thị kiểu khác nếu muốn (cần map mã màu hex)
+                  // Ở đây mình làm nút chuẩn chung cho dễ.
 
-      {/* Color Variants */}
-      {colorVariants.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-3">Color</h3>
-          <div className="flex flex-wrap gap-3">
-            {colorVariants.map((variant) => (
-              <button
-                key={variant.id}
-                onClick={() => handleColorSelect(variant)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg border-2 ${
-                  selectedColor?.id === variant.id
-                    ? "border-blue-600 bg-blue-50"
-                    : "border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                <div
-                  className="w-6 h-6 rounded-full border"
-                  style={{ backgroundColor: variant.value }}
-                />
-                <span>{variant.name}</span>
-                {variant.priceDelta && variant.priceDelta > 0 && (
-                  <span className="text-sm text-gray-600">
-                    +{formatPrice(variant.priceDelta)}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Size Variants */}
-      {sizeVariants.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-3">Size</h3>
-          <div className="flex flex-wrap gap-2">
-            {sizeVariants.map((variant) => (
-              <button
-                key={variant.id}
-                onClick={() => handleSizeSelect(variant)}
-                className={`w-14 h-14 flex items-center justify-center rounded-lg border-2 ${
-                  selectedSize?.id === variant.id
-                    ? "border-blue-600 bg-blue-50 text-blue-600"
-                    : "border-gray-200 hover:border-gray-300"
-                } ${
-                  variant.stock === 0 ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-                disabled={variant.stock === 0}
-                title={variant.stock === 0 ? "Out of stock" : variant.name}
-              >
-                {variant.name}
-                {variant.stock === 0 && (
-                  <div className="absolute w-full h-px bg-red-500 rotate-45"></div>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Other Variants */}
-      {otherVariants.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-3">Options</h3>
-          <div className="space-y-3">
-            {otherVariants.map((variant) => (
-              <div
-                key={variant.id}
-                className="flex items-center justify-between"
-              >
-                <span>{variant.name}</span>
-                <select className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  {variant.options?.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => handleAttributeSelect(attr.name, value)}
+                      className={`px-4 py-2 rounded border text-sm font-medium transition-all ${
+                        active
+                          ? "border-blue-600 text-blue-600 bg-blue-50 ring-1 ring-blue-600"
+                          : "border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50"
+                      }`}
+                    >
+                      {value}
+                    </button>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Quantity Selector */}
-      <div>
-        <h3 className="text-lg font-semibold mb-3">Quantity</h3>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center border border-gray-300 rounded-lg">
+      {/* 5. Số lượng & Kho */}
+      <div className="pt-4 border-t border-gray-100">
+        <h3 className="text-sm font-medium text-gray-900 mb-3">Số lượng</h3>
+        <div className="flex items-center gap-6">
+          {/* Bộ chọn số lượng */}
+          <div className="flex items-center border border-gray-300 rounded">
             <button
               onClick={() => onQuantityChange(-1)}
               disabled={selectedQuantity <= 1}
-              className={`w-10 h-10 flex items-center justify-center ${
-                selectedQuantity <= 1
-                  ? "text-gray-300 cursor-not-allowed"
-                  : "hover:bg-gray-100"
-              }`}
+              className="w-10 h-10 flex items-center justify-center text-gray-600 hover:bg-gray-100 disabled:opacity-50"
             >
-              <span className="text-xl">−</span>
+              -
             </button>
-
             <input
               type="number"
-              min="1"
-              max={product.stock || 99}
+              className="w-14 h-10 text-center border-x border-gray-300 focus:outline-none"
               value={selectedQuantity}
-              onChange={(e) => {
-                const value = parseInt(e.target.value);
-                if (value >= 1 && value <= (product.stock || 99)) {
-                  onQuantityChange(value - selectedQuantity);
-                }
-              }}
-              className="w-16 h-10 text-center border-x border-gray-300 focus:outline-none"
+              readOnly
             />
-
             <button
               onClick={() => onQuantityChange(1)}
-              disabled={selectedQuantity >= (product.stock || 99)}
-              className={`w-10 h-10 flex items-center justify-center ${
-                selectedQuantity >= (product.stock || 99)
-                  ? "text-gray-300 cursor-not-allowed"
-                  : "hover:bg-gray-100"
-              }`}
+              disabled={selectedQuantity >= displayStock}
+              className="w-10 h-10 flex items-center justify-center text-gray-600 hover:bg-gray-100 disabled:opacity-50"
             >
-              <span className="text-xl">+</span>
+              +
             </button>
           </div>
 
-          <span className="text-gray-600">{product.stock || 0} available</span>
+          {/* Hiển thị tồn kho */}
+          <div className="text-sm text-gray-500">
+            {displayStock > 0 ? (
+              <span>
+                Còn <span className="font-bold text-black">{displayStock}</span>{" "}
+                sản phẩm
+              </span>
+            ) : (
+              <span className="text-red-500 font-medium">Hết hàng</span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Highlights */}
-      {product.highlights && product.highlights.length > 0 && (
-        <div className="bg-gray-50 rounded-lg p-4">
-          <h3 className="font-semibold mb-3">Highlights</h3>
-          <ul className="space-y-2">
-            {product.highlights.map((highlight, index) => (
-              <li key={index} className="flex items-start">
-                <svg
-                  className="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                <span>{highlight}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Product Tags */}
+      {/* 6. Tags & Highlights (Nếu có) */}
       {product.tags && product.tags.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-3">Tags</h3>
+        <div className="pt-4 border-t border-gray-100">
           <div className="flex flex-wrap gap-2">
-            {product.tags.map((tag) => (
+            {product.tags.map((tag, idx) => (
               <span
-                key={tag}
-                className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 cursor-pointer"
+                key={idx}
+                className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded"
               >
                 #{tag}
               </span>

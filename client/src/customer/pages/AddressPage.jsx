@@ -1,5 +1,4 @@
-import React, { useState } from "react";
-// 🔥 ĐÃ THÊM 'X' VÀO DANH SÁCH IMPORT
+import React, { useState, useEffect } from "react";
 import {
   Plus,
   Loader2,
@@ -11,21 +10,48 @@ import {
 } from "lucide-react";
 import { userAPI } from "../services/api";
 
-const AddressTab = ({ addresses = [], onAddressUpdate }) => {
+const AddressPage = () => {
+  // --- 1. STATE QUẢN LÝ DỮ LIỆU ---
+  const [addresses, setAddresses] = useState([]); // Danh sách địa chỉ
+  const [pageLoading, setPageLoading] = useState(true); // Loading khi mới vào trang
+
+  // State cho Form
   const [showAddForm, setShowAddForm] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
+  // State dữ liệu Form
   const [formData, setFormData] = useState({
-    name: "",
+    label: "Nhà riêng",
     fullName: "",
     phone: "",
-    address: "",
+    province: "",
+    district: "",
+    ward: "",
+    detailAddress: "",
     isDefault: false,
   });
 
-  const addressList = Array.isArray(addresses) ? addresses : [];
+  // --- 2. HÀM FETCH DỮ LIỆU (Tự gọi) ---
+  const fetchAddresses = async () => {
+    try {
+      // setPageLoading(true); // Chỉ set true lần đầu hoặc khi cần thiết
+      const res = await userAPI.getAddresses();
+      const list = Array.isArray(res) ? res : res.data || [];
+      setAddresses(list);
+    } catch (error) {
+      console.error("Lỗi tải địa chỉ:", error);
+    } finally {
+      setPageLoading(false);
+    }
+  };
 
+  // Gọi API ngay khi Component được mount
+  useEffect(() => {
+    fetchAddresses();
+  }, []);
+
+  // --- 3. CÁC HÀM XỬ LÝ FORM ---
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
@@ -36,10 +62,13 @@ const AddressTab = ({ addresses = [], onAddressUpdate }) => {
 
   const resetForm = () => {
     setFormData({
-      name: "",
+      label: "Nhà riêng",
       fullName: "",
       phone: "",
-      address: "",
+      province: "",
+      district: "",
+      ward: "",
+      detailAddress: "",
       isDefault: false,
     });
     setShowAddForm(false);
@@ -47,9 +76,17 @@ const AddressTab = ({ addresses = [], onAddressUpdate }) => {
   };
 
   const validateForm = () => {
-    const { name, fullName, phone, address } = formData;
-    if (!name.trim() || !fullName.trim() || !phone.trim() || !address.trim()) {
-      alert("Vui lòng điền đầy đủ các trường thông tin bắt buộc.");
+    const { fullName, phone, province, district, ward, detailAddress } =
+      formData;
+    if (
+      !fullName.trim() ||
+      !phone.trim() ||
+      !province.trim() ||
+      !district.trim() ||
+      !ward.trim() ||
+      !detailAddress.trim()
+    ) {
+      alert("Vui lòng điền đầy đủ thông tin địa chỉ.");
       return false;
     }
     const phoneRegex = /(0[3|5|7|8|9])+([0-9]{8})\b/;
@@ -64,20 +101,20 @@ const AddressTab = ({ addresses = [], onAddressUpdate }) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    setLoading(true);
+    setFormLoading(true);
     try {
       if (editingId) {
         await userAPI.updateAddress(editingId, formData);
       } else {
         await userAPI.addAddress(formData);
       }
-
       resetForm();
-      if (onAddressUpdate) onAddressUpdate();
+      fetchAddresses(); // 🔥 Reload lại danh sách sau khi lưu
     } catch (error) {
-      alert(error.message || "Có lỗi xảy ra khi lưu địa chỉ.");
+      console.error(error);
+      alert(error.response?.data?.message || "Có lỗi xảy ra khi lưu địa chỉ.");
     } finally {
-      setLoading(false);
+      setFormLoading(false);
     }
   };
 
@@ -85,49 +122,62 @@ const AddressTab = ({ addresses = [], onAddressUpdate }) => {
     if (!window.confirm("Bạn có chắc chắn muốn xóa địa chỉ này?")) return;
     try {
       await userAPI.deleteAddress(id);
-      if (onAddressUpdate) onAddressUpdate();
+      fetchAddresses(); // 🔥 Reload lại danh sách sau khi xóa
     } catch (error) {
-      alert(error.message || "Không thể xóa địa chỉ.");
+      alert(error.response?.data?.message || "Không thể xóa địa chỉ.");
     }
   };
 
   const handleSetDefault = async (id) => {
     try {
       await userAPI.setDefaultAddress(id);
-      if (onAddressUpdate) onAddressUpdate();
+      fetchAddresses(); // 🔥 Reload lại danh sách sau khi set default
     } catch (error) {
-      alert(error.message || "Không thể đặt làm mặc định.");
+      alert(error.response?.data?.message || "Không thể đặt làm mặc định.");
     }
   };
 
   const startEdit = (address) => {
     setEditingId(address._id);
     setFormData({
-      name: address.name,
-      fullName: address.fullName,
-      phone: address.phone,
-      address: address.address,
-      isDefault: address.isDefault,
+      label: address.label || "Nhà riêng",
+      fullName: address.fullName || "",
+      phone: address.phone || "",
+      province: address.province || "", // Lưu ý mapping đúng field từ BE
+      district: address.district || "",
+      ward: address.ward || "",
+      detailAddress: address.detailAddress || "", // Lưu ý mapping đúng field từ BE
+      isDefault: address.isDefault || false,
     });
     setShowAddForm(true);
   };
 
+  // --- 4. RENDER ---
+  if (pageLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="animate-spin text-indigo-600" size={32} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      {/* Header */}
+      <div className="flex justify-between items-center pb-4 border-b border-gray-100">
         <div>
-          <h3 className="text-lg font-bold text-gray-800">Sổ địa chỉ</h3>
-          <p className="text-sm text-gray-500">
-            Quản lý các địa chỉ nhận hàng của bạn
+          <h3 className="text-xl font-bold text-gray-800">Sổ địa chỉ</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            Quản lý nhận hàng ({addresses.length}/10)
           </p>
         </div>
         <button
           onClick={() => setShowAddForm(true)}
-          disabled={addressList.length >= 5}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-            addressList.length >= 5
+          disabled={addresses.length >= 10}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all shadow-sm ${
+            addresses.length >= 10
               ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
+              : "bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md active:scale-95"
           }`}
         >
           <Plus size={18} />
@@ -135,73 +185,131 @@ const AddressTab = ({ addresses = [], onAddressUpdate }) => {
         </button>
       </div>
 
+      {/* Form Thêm/Sửa */}
       {showAddForm && (
-        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-6 relative">
+        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-6 relative animate-in fade-in zoom-in-95 duration-200">
           <button
             onClick={resetForm}
-            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-white p-1 rounded-full shadow-sm"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
 
-          <h4 className="font-bold text-indigo-900 mb-4 flex items-center gap-2">
-            <MapPin size={18} />
+          <h4 className="font-bold text-indigo-900 mb-5 flex items-center gap-2">
+            <div className="p-2 bg-white rounded-full shadow-sm text-indigo-600">
+              <MapPin size={18} />
+            </div>
             {editingId ? "Cập nhật địa chỉ" : "Thêm địa chỉ giao hàng mới"}
           </h4>
 
-          <form
-            onSubmit={handleSaveAddress}
-            className="grid grid-cols-1 md:grid-cols-2 gap-4"
-          >
-            <div className="space-y-1">
-              <label className="text-sm font-semibold text-gray-700">
-                Tên gợi nhớ (Ví dụ: Nhà riêng)
+          <form onSubmit={handleSaveAddress} className="space-y-4">
+            {/* Loại địa chỉ */}
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase mb-2 block tracking-wide">
+                Loại địa chỉ
+              </label>
+              <div className="flex gap-4">
+                {["Nhà riêng", "Văn phòng"].map((type) => (
+                  <label
+                    key={type}
+                    className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors"
+                  >
+                    <input
+                      type="radio"
+                      name="label"
+                      value={type}
+                      checked={formData.label === type}
+                      onChange={handleInputChange}
+                      className="text-indigo-600 w-4 h-4 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">
+                      {type}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-1 block">
+                  Họ và tên
+                </label>
+                <input
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all bg-white"
+                  placeholder="VD: Nguyễn Văn A"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-1 block">
+                  Số điện thoại
+                </label>
+                <input
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all bg-white"
+                  placeholder="VD: 0912345678"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-1 block">
+                  Tỉnh / Thành phố
+                </label>
+                <input
+                  name="province"
+                  value={formData.province}
+                  onChange={handleInputChange}
+                  className="input-std"
+                  placeholder="Hà Nội"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-1 block">
+                  Quận / Huyện
+                </label>
+                <input
+                  name="district"
+                  value={formData.district}
+                  onChange={handleInputChange}
+                  className="input-std"
+                  placeholder="Cầu Giấy"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-1 block">
+                  Phường / Xã
+                </label>
+                <input
+                  name="ward"
+                  value={formData.ward}
+                  onChange={handleInputChange}
+                  className="input-std"
+                  placeholder="Dịch Vọng"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold text-gray-700 mb-1 block">
+                Địa chỉ cụ thể
               </label>
               <input
-                name="name"
-                value={formData.name}
+                name="detailAddress"
+                value={formData.detailAddress}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="Nhà riêng / Công ty"
+                className="input-std w-full"
+                placeholder="Số nhà, Tên đường, Tòa nhà..."
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-sm font-semibold text-gray-700">
-                Họ và tên người nhận
-              </label>
-              <input
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="Nguyễn Văn A"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-semibold text-gray-700">
-                Số điện thoại
-              </label>
-              <input
-                name="phone"
-                value={formData.phone}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="09xxx"
-              />
-            </div>
-            <div className="md:col-span-2 space-y-1">
-              <label className="text-sm font-semibold text-gray-700">
-                Địa chỉ chi tiết
-              </label>
-              <textarea
-                name="address"
-                value={formData.address}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none h-20"
-                placeholder="Số nhà, tên đường, Phường/Xã, Quận/Huyện, Tỉnh/Thành phố"
-              />
-            </div>
-            <div className="md:col-span-2 flex items-center gap-2">
+
+            <div className="flex items-center gap-2 pt-2">
               <input
                 type="checkbox"
                 id="isDefault"
@@ -210,93 +318,118 @@ const AddressTab = ({ addresses = [], onAddressUpdate }) => {
                 onChange={handleInputChange}
                 className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
               />
-              <label htmlFor="isDefault" className="text-sm text-gray-600">
+              <label
+                htmlFor="isDefault"
+                className="text-sm text-gray-700 font-medium cursor-pointer"
+              >
                 Đặt làm địa chỉ mặc định
               </label>
             </div>
 
-            <div className="md:col-span-2 flex justify-end gap-3 pt-2">
+            <div className="flex justify-end gap-3 pt-4 border-t border-indigo-100">
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+                className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-white hover:shadow-sm rounded-lg transition-all"
               >
                 Hủy bỏ
               </button>
               <button
                 type="submit"
-                disabled={loading}
-                className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+                disabled={formLoading}
+                className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2 shadow-sm"
               >
-                {loading && <Loader2 size={16} className="animate-spin" />}
-                {editingId ? "Lưu cập nhật" : "Thêm mới"}
+                {formLoading && <Loader2 size={16} className="animate-spin" />}
+                {editingId ? "Lưu thay đổi" : "Hoàn thành"}
               </button>
             </div>
           </form>
+          <style>{`.input-std { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid #d1d5db; background-color: white; outline: none; transition: all 0.2s; } .input-std:focus { ring: 2px; ring-color: #6366f1; border-color: transparent; }`}</style>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {addressList.length === 0 ? (
-          <div className="col-span-full py-12 text-center bg-gray-50 rounded-xl border border-dashed border-gray-300">
-            <p className="text-gray-500 italic">Bạn chưa lưu địa chỉ nào.</p>
+      {/* LIST ADDRESSES */}
+      <div className="grid grid-cols-1 gap-4">
+        {addresses.length === 0 ? (
+          <div className="py-16 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+            <div className="mx-auto w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
+              <MapPin className="text-gray-300" size={32} />
+            </div>
+            <p className="text-gray-500 font-medium">
+              Bạn chưa lưu địa chỉ nào.
+            </p>
+            <p className="text-gray-400 text-sm mt-1">
+              Thêm địa chỉ để thanh toán nhanh hơn.
+            </p>
           </div>
         ) : (
-          addressList.map((addr) => (
+          addresses.map((addr) => (
             <div
               key={addr._id}
-              className={`relative p-5 rounded-xl border-2 transition-all ${
+              className={`relative p-5 rounded-xl border transition-all duration-200 group ${
                 addr.isDefault
-                  ? "border-indigo-600 bg-white shadow-sm"
-                  : "border-gray-100 bg-gray-50 hover:border-gray-200"
+                  ? "border-indigo-600 bg-indigo-50/30 shadow-sm"
+                  : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm"
               }`}
             >
               {addr.isDefault && (
-                <div className="absolute top-4 right-4 text-indigo-600 flex items-center gap-1 text-xs font-bold uppercase">
-                  <CheckCircle2 size={14} /> Mặc định
+                <div className="absolute top-0 right-0 bg-indigo-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl rounded-tr-lg flex items-center gap-1 shadow-sm">
+                  <CheckCircle2 size={12} /> MẶC ĐỊNH
                 </div>
               )}
 
-              <div className="flex flex-col h-full">
-                <div className="mb-3">
-                  <span className="text-xs font-bold text-indigo-500 uppercase tracking-widest">
-                    {addr.name}
-                  </span>
-                  <h5 className="font-bold text-gray-900">{addr.fullName}</h5>
-                  <p className="text-sm text-gray-600 font-medium">
-                    {addr.phone}
+              <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                <div className="flex-1 pr-8">
+                  <div className="flex items-center flex-wrap gap-2 mb-2">
+                    <span className="text-gray-900 font-bold text-lg">
+                      {addr.fullName}
+                    </span>
+                    <span className="text-gray-300 hidden md:inline">|</span>
+                    <span className="text-gray-600 font-medium">
+                      {addr.phone}
+                    </span>
+
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded border ml-1 font-medium ${
+                        addr.label === "Văn phòng"
+                          ? "bg-blue-50 text-blue-700 border-blue-100"
+                          : "bg-green-50 text-green-700 border-green-100"
+                      }`}
+                    >
+                      {addr.label || "Nhà riêng"}
+                    </span>
+                  </div>
+
+                  <p className="text-gray-800 text-sm font-medium mt-1">
+                    {addr.detailAddress}
+                  </p>
+                  <p className="text-gray-500 text-sm mt-0.5">
+                    {addr.ward}, {addr.district}, {addr.province}
                   </p>
                 </div>
 
-                <p className="text-sm text-gray-500 mb-4 flex-grow italic">
-                  {addr.address}
-                </p>
-
-                <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                  <div className="flex gap-4">
-                    <button
-                      onClick={() => startEdit(addr)}
-                      className="text-gray-400 hover:text-indigo-600 flex items-center gap-1 text-sm font-medium transition-colors"
-                    >
-                      <Edit size={14} /> Sửa
-                    </button>
-                    {!addr.isDefault && (
+                <div className="flex flex-row md:flex-col gap-2 shrink-0 w-full md:w-auto mt-2 md:mt-0 border-t md:border-t-0 pt-3 md:pt-0 border-gray-100">
+                  <button
+                    onClick={() => startEdit(addr)}
+                    className="flex-1 md:flex-none text-indigo-600 hover:bg-indigo-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors text-center md:text-right"
+                  >
+                    Cập nhật
+                  </button>
+                  {!addr.isDefault && (
+                    <>
                       <button
                         onClick={() => handleDelete(addr._id)}
-                        className="text-gray-400 hover:text-red-600 flex items-center gap-1 text-sm font-medium transition-colors"
+                        className="flex-1 md:flex-none text-red-500 hover:bg-red-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors text-center md:text-right"
                       >
-                        <Trash2 size={14} /> Xóa
+                        Xóa
                       </button>
-                    )}
-                  </div>
-
-                  {!addr.isDefault && (
-                    <button
-                      onClick={() => handleSetDefault(addr._id)}
-                      className="text-xs font-bold text-gray-400 hover:text-indigo-600 underline transition-colors"
-                    >
-                      Đặt mặc định
-                    </button>
+                      <button
+                        onClick={() => handleSetDefault(addr._id)}
+                        className="flex-1 md:flex-none text-gray-500 hover:bg-gray-100 px-4 py-2 rounded-lg text-sm font-medium transition-colors text-center md:text-right whitespace-nowrap"
+                      >
+                        Thiết lập mặc định
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -308,4 +441,4 @@ const AddressTab = ({ addresses = [], onAddressUpdate }) => {
   );
 };
 
-export default AddressTab;
+export default AddressPage;

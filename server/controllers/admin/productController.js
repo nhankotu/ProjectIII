@@ -9,33 +9,32 @@ export const getAllProducts = async (req, res) => {
       page = 1,
       limit = 10,
       search,
-      status, // active, pending, rejected...
-      sellerId, // Lọc theo Shop cụ thể
+      status,
+      sellerId,
       category,
       brand,
       sort = "newest",
     } = req.query;
 
-    // --- 1. Xây dựng bộ lọc ---
-    // Mặc định: Admin xem được tất cả, trừ những cái đã Xóa Vĩnh Viễn (Soft deleted = true thì vẫn xem được để khôi phục nếu cần, hoặc lọc ra)
-    // Tùy logic bên bạn, ở đây tôi để mặc định chỉ xem cái chưa xóa.
-    const filter = { isDeleted: false };
+    const filter = {};
+    if (status) {
+      filter.status = status;
+    } else {
+      filter.status = { $ne: "deleted" };
+    }
 
-    // Tìm kiếm: Ưu tiên tìm theo Tên (Regex) hoặc tìm trong Text Index
     if (search) {
       filter.$or = [
         { name: { $regex: search, $options: "i" } },
-        { tags: { $regex: search, $options: "i" } }, // Tìm cả trong tags
+        { tags: { $regex: search, $options: "i" } },
       ];
     }
 
-    if (status) filter.status = status;
     if (sellerId) filter.sellerId = sellerId;
     if (category) filter.category = category;
     if (brand) filter.brand = brand;
 
-    // --- 2. Xử lý Sắp xếp ---
-    let sortOption = { createdAt: -1 }; // Mặc định mới nhất
+    let sortOption = { createdAt: -1 };
     switch (sort) {
       case "oldest":
         sortOption = { createdAt: 1 };
@@ -48,29 +47,30 @@ export const getAllProducts = async (req, res) => {
         break;
       case "sold":
         sortOption = { sold: -1 };
-        break; // Xem sp bán chạy nhất
-      case "view":
-        sortOption = { views: -1 };
-        break; // Nếu có trường view
+        break;
+      case "rating":
+        sortOption = { ratingAverage: -1 };
+        break;
     }
 
-    // --- 3. Query DB ---
-    const products = await Product.find(filter)
-      .populate("category", "name slug") // Lấy tên danh mục
-      .populate("brand", "name") // Lấy tên thương hiệu
-      .populate("sellerId", "username email phone name avatar") // Lấy thông tin Shop/User
-      .sort(sortOption)
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
-
-    const total = await Product.countDocuments(filter);
+    const [products, total] = await Promise.all([
+      Product.find(filter)
+        .populate("category", "name slug")
+        .populate("brand", "name")
+        .populate("sellerId", "username email phone name avatar")
+        .sort(sortOption)
+        .skip((Number(page) - 1) * Number(limit))
+        .limit(Number(limit))
+        .lean(),
+      Product.countDocuments(filter),
+    ]);
 
     res.status(200).json({
       success: true,
       data: products,
       pagination: {
         totalProducts: total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / Number(limit)),
         currentPage: Number(page),
         limit: Number(limit),
       },
@@ -81,7 +81,7 @@ export const getAllProducts = async (req, res) => {
 };
 
 // ==========================================
-// 2. GET DETAIL: Xem chi tiết để điều tra
+// 2. GET DETAIL: Xem chi tiết
 // ==========================================
 export const getProductDetail = async (req, res) => {
   try {
@@ -90,7 +90,7 @@ export const getProductDetail = async (req, res) => {
     const product = await Product.findById(id)
       .populate("category", "name")
       .populate("brand", "name")
-      .populate("sellerId", "username email phone name addresses"); // Xem kỹ shop này ở đâu
+      .populate("sellerId", "username email phone name"); // Bỏ 'addresses' nếu User Model không có, hoặc cứ để nếu có
 
     if (!product) {
       return res
@@ -105,43 +105,31 @@ export const getProductDetail = async (req, res) => {
 };
 
 // ==========================================
-// 3. UPDATE STATUS: Cấm / Duyệt / Từ chối
+// 3. UPDATE STATUS: Duyệt / Cấm / Khôi phục
 // ==========================================
 export const updateProductStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-    // Các giá trị status hợp lệ theo Model:
-    // ["active", "pending", "draft", "hidden", "rejected"]
 
-    // Admin thường dùng:
-    // - 'rejected': Từ chối duyệt (nếu có quy trình duyệt)
-    // - 'hidden' hoặc một trạng thái 'banned' (nếu bạn thêm vào enum): Để khóa sản phẩm vi phạm.
-    // Với enum hiện tại của bạn: "rejected" là hợp lý nhất để Cấm bán.
+    // Enum hợp lệ trong Model mới:
+    // ["active", "draft", "hidden", "rejected", "deleted"]
+    const validStatuses = ["active", "hidden", "rejected", "draft"];
 
-    // Validate enum
-    const validStatuses = ["active", "pending", "hidden", "rejected"];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Trạng thái không hợp lệ (active, pending, hidden, rejected)",
+        message:
+          "Trạng thái không hợp lệ. Chỉ chấp nhận: active, hidden, rejected",
       });
     }
 
-    const updateData = { status };
-
-    // Logic phụ: Nếu Admin reject/hidden -> Tự động set isActive = false luôn cho chắc
-    if (status === "rejected" || status === "hidden") {
-      updateData.isActive = false;
-    }
-    // Nếu Admin active lại -> Có thể set isActive = true (hoặc để Seller tự bật)
-    else if (status === "active") {
-      updateData.isActive = true;
-    }
-
-    const product = await Product.findByIdAndUpdate(id, updateData, {
-      new: true,
-    });
+    // Cập nhật trực tiếp status (Không cần xử lý isActive nữa)
+    const product = await Product.findByIdAndUpdate(
+      id,
+      { status: status },
+      { new: true },
+    );
 
     if (!product) {
       return res
@@ -162,20 +150,17 @@ export const updateProductStatus = async (req, res) => {
 // ==========================================
 // 4. DELETE: Xóa mềm (Soft Delete)
 // ==========================================
-// Admin dùng khi sản phẩm vi phạm pháp luật nghiêm trọng hoặc spam
 export const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Sử dụng cơ chế Soft Delete có sẵn trong Model (isDeleted)
+    // Sử dụng enum "deleted" thay vì boolean isDeleted
     const product = await Product.findByIdAndUpdate(
       id,
       {
-        isDeleted: true,
-        isActive: false,
-        status: "hidden", // Ẩn luôn status
+        status: "deleted",
       },
-      { new: true }
+      { new: true },
     );
 
     if (!product)
@@ -183,7 +168,7 @@ export const deleteProduct = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Đã xóa sản phẩm thành công (Soft Delete)",
+      message: "Đã xóa sản phẩm thành công (Chuyển sang trạng thái deleted)",
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -191,14 +176,16 @@ export const deleteProduct = async (req, res) => {
 };
 
 // ==========================================
-// 5. STATS: Thống kê nhanh cho Dashboard
+// 5. STATS: Thống kê nhanh
 // ==========================================
-
 export const getProductStats = async (req, res) => {
   try {
-    // Thống kê theo Status
+    // Thống kê group theo field 'status'
     const stats = await Product.aggregate([
-      { $match: { isDeleted: false } }, // Chỉ tính các sp chưa xóa
+      // Bước 1: Lọc bỏ các sản phẩm đã xóa (nếu không muốn tính vào thống kê)
+      // { $match: { status: { $ne: "deleted" } } },
+
+      // Bước 2: Group
       {
         $group: {
           _id: "$status",
@@ -207,20 +194,22 @@ export const getProductStats = async (req, res) => {
       },
     ]);
 
-    // Format dữ liệu trả về cho đẹp
+    // Format dữ liệu trả về mặc định bằng 0 nếu chưa có
     const result = {
       active: 0,
-      pending: 0,
+      draft: 0,
       hidden: 0,
       rejected: 0,
-      draft: 0,
+      deleted: 0,
       total: 0,
     };
 
     stats.forEach((item) => {
+      // item._id là status (vd: "active"), item.count là số lượng
       if (result.hasOwnProperty(item._id)) {
         result[item._id] = item.count;
       }
+      // Tính tổng tất cả (bao gồm cả deleted nếu bước $match trên không lọc)
       result.total += item.count;
     });
 

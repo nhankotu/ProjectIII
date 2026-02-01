@@ -1,8 +1,7 @@
-// src/hooks/useSellerDashboard.js
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { dashboardApi } from "../services/api";
 
-// Utility functions
 export const formatCurrency = (amount) => {
   return new Intl.NumberFormat("vi-VN", {
     style: "currency",
@@ -21,7 +20,6 @@ export const formatStatus = (status) => {
     delivered: { text: "Đã giao", color: "bg-green-100 text-green-800" },
     cancelled: { text: "Đã hủy", color: "bg-red-100 text-red-800" },
   };
-
   return (
     statusMap[status] || { text: status, color: "bg-gray-100 text-gray-800" }
   );
@@ -42,96 +40,41 @@ export const useSellerDashboard = () => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // Function to get auth token
-  const getAuthToken = () => {
-    return (
-      localStorage.getItem("token") || sessionStorage.getItem("token") || ""
-    );
-  };
-
-  // Function to handle API errors
   const handleApiError = (error, statusCode) => {
-    console.error("API Error:", error);
-
     if (statusCode === 401) {
-      // Clear invalid token
       localStorage.removeItem("token");
       sessionStorage.removeItem("token");
       navigate("/login");
-      return "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.";
+      return "Phiên đăng nhập hết hạn.";
     }
-
-    if (statusCode === 403) {
-      return "Bạn không có quyền truy cập trang này.";
-    }
-
-    if (statusCode === 404) {
-      return "API endpoint không tồn tại.";
-    }
-
-    if (statusCode >= 500) {
-      return "Lỗi máy chủ. Vui lòng thử lại sau.";
-    }
-
     return error.message || "Có lỗi xảy ra khi tải dữ liệu.";
   };
 
-  // Fetch dashboard data từ API
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const token = getAuthToken();
+      const response = await dashboardApi.getSummary();
 
-      if (!token) {
-        navigate("/login");
-        return;
+      if (!response) {
+        throw new Error("Không nhận được phản hồi từ server");
       }
 
-      // Gọi API thực sự
-      const apiUrl = import.meta.env.VITE_API_URL;
-      const response = await fetch(`${apiUrl}/api/seller/dashboard/summary`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      // Kiểm tra response
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch {
-          errorData = { message: errorText || `HTTP ${response.status}` };
-        }
-
-        const errorMessage = handleApiError(
-          new Error(errorData.message || `Lỗi ${response.status}`),
-          response.status
-        );
-        setError(errorMessage);
-        return;
+      let data = null;
+      if (response.data && response.data.stats) {
+        data = response.data;
+      } else if (response.stats) {
+        data = response;
+      } else {
+        data = response.data || response;
       }
 
-      const data = await response.json();
-      console.log("API Data received:", data);
-
-      // Validate và format dữ liệu theo đúng cấu trúc API trả về
       if (!data || typeof data !== "object") {
-        throw new Error("Dữ liệu trả về không hợp lệ");
+        throw new Error("Dữ liệu sau trích xuất không hợp lệ");
       }
 
-      // API trả về: { stats, recentOrders, topProducts }
-      if (
-        data.stats &&
-        Array.isArray(data.recentOrders) &&
-        Array.isArray(data.topProducts)
-      ) {
-        // Format dữ liệu theo đúng cấu trúc API
+      if (data.stats && Array.isArray(data.recentOrders)) {
         const formattedData = {
           todayRevenue: data.stats.todayRevenue || 0,
           totalOrders: data.stats.totalOrders || 0,
@@ -147,7 +90,7 @@ export const useSellerDashboard = () => {
             date: order.date || new Date().toISOString().split("T")[0],
             itemsCount: order.itemsCount || 0,
           })),
-          topProducts: data.topProducts.map((product) => ({
+          topProducts: (data.topProducts || []).map((product) => ({
             id: product.id || product._id,
             name: product.name || "Sản phẩm",
             sales: product.sales || product.soldCount || 0,
@@ -162,35 +105,20 @@ export const useSellerDashboard = () => {
 
         setDashboardData(formattedData);
       } else {
-        // Nếu cấu trúc khác, có thể API đang có vấn đề
         throw new Error("Cấu trúc dữ liệu không đúng định dạng");
       }
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-      setError(error.message || "Có lỗi xảy ra khi tải dữ liệu");
-
-      // KHÔNG DÙNG MOCK DATA - chỉ hiển thị lỗi
-      setDashboardData({
-        todayRevenue: 0,
-        totalOrders: 0,
-        pendingOrders: 0,
-        lowStockProducts: 0,
-        totalProducts: 0,
-        conversionRate: 0,
-        recentOrders: [],
-        topProducts: [],
-      });
+    } catch (err) {
+      const errorMessage = handleApiError(err, err.response?.status);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   }, [navigate]);
 
-  // Fetch data khi component mount
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  // Hàm xử lý Quick Actions
   const handleQuickAction = (action) => {
     const actionMap = {
       "add-product": "/seller/products/add",
@@ -198,19 +126,13 @@ export const useSellerDashboard = () => {
       "view-reports": "/seller/reports",
       "create-promotion": "/seller/promotions/create",
     };
-
-    if (actionMap[action]) {
-      navigate(actionMap[action]);
-    }
+    if (actionMap[action]) navigate(actionMap[action]);
   };
 
   return {
-    // State
     dashboardData,
     loading,
     error,
-
-    // Methods
     refetch: fetchDashboardData,
     formatCurrency,
     formatStatus,

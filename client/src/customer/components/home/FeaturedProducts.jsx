@@ -79,11 +79,9 @@ const FeaturedProducts = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
         <div>
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            ⭐ Featured Products
+            ⭐ Sản phẩm nổi bật
           </h2>
-          <p className="text-gray-600">
-            Handpicked selection of quality products
-          </p>
+          <p className="text-gray-600">Danh sách sản phẩm nổi bật</p>
         </div>
 
         {/* Filter Tabs */}

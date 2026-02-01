@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { orderAPI } from "../services/api";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import {
@@ -16,6 +16,7 @@ import {
 const OrderDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +32,23 @@ const OrderDetailPage = () => {
     try {
       setLoading(true);
       const res = await orderAPI.getOrderById(id);
-      setOrder(res.data || res);
+      const orderData = res.data || res;
+      setOrder(orderData);
+
+      // --- LOGIC TỰ ĐỘNG MỞ MODAL ---
+
+      if (location.state?.autoOpenReview && orderData.items) {
+        const targetId = location.state.targetProductId;
+        const itemToReview = orderData.items.find(
+          (item) => (item.product?._id || item.product) === targetId,
+        );
+
+        if (itemToReview) {
+          handleOpenReview(itemToReview);
+
+          window.history.replaceState({}, document.title);
+        }
+      }
     } catch (error) {
       console.error("Lỗi tải chi tiết đơn hàng:", error);
     } finally {
@@ -57,7 +74,6 @@ const OrderDetailPage = () => {
     }
     setShowReviewModal(true);
   };
-
   // Gửi Đánh giá (Upsert: Thêm hoặc Sửa)
   const handleSubmitReview = async () => {
     if (!comment.trim()) return alert("Vui lòng nhập nội dung đánh giá");
@@ -71,7 +87,7 @@ const OrderDetailPage = () => {
         comment,
       });
       alert(
-        isEditing ? "Cập nhật đánh giá thành công!" : "Đánh giá thành công!"
+        isEditing ? "Cập nhật đánh giá thành công!" : "Đánh giá thành công!",
       );
       setShowReviewModal(false);
       fetchOrderDetail(); // Tải lại dữ liệu để cập nhật trạng thái nút
@@ -304,8 +320,8 @@ const OrderDetailPage = () => {
                 {submitting
                   ? "Đang xử lý..."
                   : isEditing
-                  ? "Cập nhật"
-                  : "Gửi đánh giá"}
+                    ? "Cập nhật"
+                    : "Gửi đánh giá"}
               </button>
             </div>
           </div>

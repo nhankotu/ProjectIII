@@ -1,12 +1,13 @@
 import mongoose from "mongoose";
-import ShopSettings from "../../models/ShopSetting.js";
+import Shop from "../../models/Shop.js";
 import Product from "../../models/Product.js";
 
 export const getPublicShopInfo = async (req, res) => {
   try {
-    const { sellerId } = req.params;
+    // 1. Nhận Shop ID từ URL (Frontend gửi id của shop, ví dụ: /shop/:id)
+    const { sellerId } = req.params; // (Thực chất đây là shopId)
 
-    // 2. Validate ID trước (Tránh lỗi server crash nếu ID bậy bạ)
+    // Validate ID
     if (!mongoose.Types.ObjectId.isValid(sellerId)) {
       return res.status(400).json({
         success: false,
@@ -14,67 +15,92 @@ export const getPublicShopInfo = async (req, res) => {
       });
     }
 
-    // 3. Chạy song song các truy vấn (Tối ưu tốc độ)
-    const [shop, products, totalProducts, shopStats] = await Promise.all([
-      // A. Thông tin shop
-      ShopSettings.findOne({ sellerId })
-        .select("basicInfo policies shipping contact.socialMedia seo createdAt")
-        .lean(),
+    const shop = await Shop.findOne({
+      $or: [{ _id: sellerId }, { owner: sellerId }],
+      status: "active",
+    })
+      .select("-paymentInfo -updatedAt -__v")
+      .populate("owner", "username avatar") // Populate để lấy thông tin user
+      .lean();
 
-      // B. 10 sản phẩm mới nhất
-      Product.find({ sellerId, isDeleted: false, status: "active" })
+    // Kiểm tra ngay nếu không thấy Shop
+    if (!shop) {
+      return res.status(404).json({
+        success: false,
+        message: "Cửa hàng không tồn tại hoặc đã bị khóa",
+      });
+    }
+
+    // 🔥 MẤU CHỐT: Lấy User ID (Owner ID) từ shop vừa tìm được
+    const ownerId = shop.owner._id;
+
+    // 3. Bây giờ mới dùng ownerId để tìm sản phẩm
+    // (Vì Product liên kết với User, không phải liên kết trực tiếp với Shop ID)
+    const [products, totalProducts, shopStats] = await Promise.all([
+      // A. Sản phẩm
+      Product.find({ sellerId: ownerId, status: "active" })
         .sort({ createdAt: -1 })
         .limit(10)
         .select(
-          "name price originalPrice thumbnail slug ratings averageRating sold"
+          "name price originalPrice thumbnail slug ratingAverage sold stock type"
         )
         .lean(),
 
-      // C. Đếm tổng sản phẩm
-      Product.countDocuments({ sellerId, isDeleted: false, status: "active" }),
+      // B. Tổng số lượng
+      Product.countDocuments({ sellerId: ownerId, status: "active" }),
 
-      // D. Tính điểm trung bình (Aggregate)
+      // C. Thống kê Rating/Sold
       Product.aggregate([
         {
           $match: {
-            sellerId: new mongoose.Types.ObjectId(sellerId),
-            isDeleted: false,
+            sellerId: new mongoose.Types.ObjectId(ownerId), // Dùng ownerId ở đây
             status: "active",
           },
         },
         {
           $group: {
             _id: null,
-            avgRating: { $avg: "$averageRating" },
+            avgRating: { $avg: "$ratingAverage" },
             totalSold: { $sum: "$sold" },
           },
         },
       ]),
     ]);
 
-    // 4. Kiểm tra shop có tồn tại không
-    if (!shop) {
-      return res.status(404).json({
-        success: false,
-        message: "Cửa hàng không tồn tại",
-      });
-    }
-
-    // 5. Xử lý số liệu thống kê (Tránh lỗi null/undefined)
+    // 4. Xử lý số liệu hiển thị
     const stats = shopStats[0] || { avgRating: 0, totalSold: 0 };
-
-    // Đảm bảo avgRating là số trước khi toFixed
-    const safeRating = stats.avgRating || 0;
+    const formattedRating = stats.avgRating ? stats.avgRating.toFixed(1) : 0;
 
     res.json({
       success: true,
-      message: "Lấy thông tin thành công",
+      message: "Lấy thông tin Shop thành công",
       data: {
         shop: {
-          ...shop,
+          _id: shop._id,
+          name: shop.name,
+          slug: shop.slug,
+          logo: shop.logo,
+          banner: shop.banner,
+          description: shop.description,
+          isMall: shop.isMall,
+          responseRate: shop.responseRate,
+          followerCount: shop.followerCount,
+          contact: shop.contact,
+          policies: shop.policies,
+          shippingConfig: {
+            partners: shop.shippingConfig?.partners || [],
+            freeShipThreshold: shop.shippingConfig?.freeShipThreshold || 0,
+          },
+          avgRating: formattedRating,
+          totalSold: stats.totalSold,
           joinedAt: shop.createdAt,
-          avgRating: safeRating.toFixed(1), // ✅ Đã an toàn
-          totalSold: stats.totalSold || 0,
+
+          // Trả về ownerInfo đầy đủ để Frontend dùng cho Chat
+          ownerInfo: {
+            _id: shop.owner._id,
+            username: shop.owner.username,
+            avatar: shop.owner.avatar,
+          },
         },
         products,
         totalProducts,
@@ -82,6 +108,8 @@ export const getPublicShopInfo = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Lỗi lấy thông tin shop:", error);
-    res.status(500).json({ success: false, message: "Lỗi server" });
+    res
+      .status(500)
+      .json({ success: false, message: "Lỗi server: " + error.message });
   }
 };

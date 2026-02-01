@@ -2,110 +2,112 @@ import Order from "../../models/Order.js";
 import Product from "../../models/Product.js";
 import mongoose from "mongoose";
 
+// --- HELPER: Xử lý ảnh sản phẩm an toàn ---
 const getProductImage = (product) => {
-  // 1. Kiểm tra thumbnail là object có url
-  if (product?.thumbnail?.url) return product.thumbnail.url;
-
-  // 2. Kiểm tra thumbnail là string
-  if (
-    typeof product?.thumbnail === "string" &&
-    product.thumbnail.startsWith("http")
-  )
-    return product.thumbnail;
-
-  // 3. Kiểm tra mảng images
-  if (Array.isArray(product?.images) && product.images.length > 0) {
+  if (product.thumbnail?.url) return product.thumbnail.url;
+  if (Array.isArray(product.images) && product.images.length > 0) {
     const firstImg = product.images[0];
-    // Nếu phần tử đầu là string
-    if (typeof firstImg === "string") return firstImg;
-    // Nếu phần tử đầu là object có url
-    if (firstImg?.url) return firstImg.url;
+    return (
+      firstImg?.url || firstImg || "https://placehold.co/300x300?text=No+Image"
+    );
   }
-
-  // 4. Link dự phòng (Sử dụng placehold.co - ổn định và hiện đại hơn)
-  return "https://placehold.co/300x300/e2e8f0/64748b?text=Product+Image";
+  return "https://placehold.co/300x300?text=No+Image";
 };
 
-// 📊 Lấy thống kê tổng quan
+// --- HELPER: Lấy giá hiển thị (Xử lý Simple vs Variable) ---
+const getProductDisplayPrice = (product) => {
+  if (
+    product.type === "variable" &&
+    Array.isArray(product.variants) &&
+    product.variants.length > 0
+  ) {
+    return product.variants[0]?.price || 0;
+  }
+  return product.price || 0;
+};
+
+// 📊 1. Lấy thống kê tổng quan (Stats)
 export const getDashboardStats = async (req, res) => {
   try {
-    const sellerId = req.user._id;
+    const sellerId = new mongoose.Types.ObjectId(req.user._id);
 
-    // Xác định thời gian hôm nay
+    // Thời gian: Đầu ngày hôm nay -> Đầu ngày mai
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // 1. Doanh thu hôm nay
-    // Lưu ý: Trường tổng tiền trong OrderController là 'totalAmount'
-    const todayRevenueAgg = await Order.aggregate([
-      {
-        $match: {
-          sellerId: new mongoose.Types.ObjectId(sellerId),
-          status: "completed", // Hoặc "delivered" tùy quy ước
-          createdAt: { $gte: today, $lt: tomorrow },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: "$totalAmount" }, // 🔄 Sửa: total -> totalAmount
-        },
-      },
-    ]);
-    const todayRevenue = todayRevenueAgg[0]?.total || 0;
-
-    // 2. Tổng đơn hàng
-    const totalOrders = await Order.countDocuments({ sellerId });
-
-    // 3. Đơn hàng chờ xử lý
-    const pendingOrders = await Order.countDocuments({
-      sellerId,
-      status: { $in: ["pending", "confirmed"] },
-    });
-
-    // 4. Sản phẩm sắp hết hàng
-    // 🛠️ SỬA: Logic lọc theo Model Product mới
-    const lowStockProducts = await Product.countDocuments({
-      sellerId,
-      stock: { $lte: 10 },
-      isActive: true, // Chỉ tính sp đang bán
-      isDeleted: false, // Không tính sp đã xóa
-      status: "active", // Đã duyệt
-    });
-
-    // 5. Tổng số sản phẩm (Hợp lệ)
-    const totalProducts = await Product.countDocuments({
-      sellerId,
-      isDeleted: false,
-    });
-
-    // 6. Tỷ lệ chuyển đổi (Sold / (Sold + Stock) hoặc logic view tùy bạn)
-    // Ở đây dùng: Tổng đã bán / Tổng sản phẩm active
-    let conversionRate = 0;
-    if (totalProducts > 0) {
-      const soldStats = await Product.aggregate([
+    // --- AGGREGATION: Tính toán song song để tối ưu ---
+    const [revenueStats, orderCounts, productStats] = await Promise.all([
+      // A. Doanh thu hôm nay (Chỉ tính đơn đã giao thành công - delivered)
+      Order.aggregate([
         {
           $match: {
-            sellerId: new mongoose.Types.ObjectId(sellerId),
-            isDeleted: false,
+            sellerId,
+            status: "delivered", // Khớp với Enum trong Order Model
+            createdAt: { $gte: today, $lt: tomorrow },
           },
         },
         {
           $group: {
             _id: null,
-            totalSold: { $sum: "$sold" }, // 🔄 Sửa: soldCount -> sold
+            total: { $sum: "$totalAmount" },
           },
         },
-      ]);
+      ]),
 
-      const totalSold = soldStats[0]?.totalSold || 0;
-      // Công thức ví dụ: % sp đã bán được ít nhất 1 cái
-      // Hoặc: (Tổng đã bán / Tổng sản phẩm) * 100
-      conversionRate = ((totalSold / (totalProducts * 100)) * 100).toFixed(1);
-      // *Lưu ý: Công thức conversion rate thực tế thường dựa trên View (Lượt xem),
-      // nhưng ở đây ta tính tạm theo số lượng bán.
+      // B. Đếm số lượng đơn hàng
+      Order.aggregate([
+        { $match: { sellerId } },
+        {
+          $facet: {
+            total: [{ $count: "count" }],
+            pending: [
+              { $match: { status: { $in: ["pending", "confirmed"] } } }, // Đơn cần xử lý
+              { $count: "count" },
+            ],
+          },
+        },
+      ]),
+
+      // C. Thống kê sản phẩm (Khớp với Product Model status)
+      Product.aggregate([
+        { $match: { sellerId, status: { $ne: "deleted" } } }, // Không tính sp đã xóa
+        {
+          $facet: {
+            total: [{ $count: "count" }],
+            lowStock: [
+              {
+                $match: {
+                  status: "active", // Chỉ tính sp đang bán
+                  // Logic đơn giản: Check stock cha (với sp simple).
+                  // Với sp variable, logic check stock phức tạp hơn, tạm thời bỏ qua hoặc cần query sâu vào variants.
+                  stock: { $lte: 10 },
+                  type: "simple",
+                },
+              },
+              { $count: "count" },
+            ],
+            soldRate: [{ $group: { _id: null, totalSold: { $sum: "$sold" } } }],
+          },
+        },
+      ]),
+    ]);
+
+    // --- FORMAT DATA ---
+    const todayRevenue = revenueStats[0]?.total || 0;
+    const totalOrders = orderCounts[0]?.total[0]?.count || 0;
+    const pendingOrders = orderCounts[0]?.pending[0]?.count || 0;
+
+    const totalProducts = productStats[0]?.total[0]?.count || 0;
+    const lowStockProducts = productStats[0]?.lowStock[0]?.count || 0;
+    const totalSold = productStats[0]?.soldRate[0]?.totalSold || 0;
+
+    // Tính tỷ lệ bán hàng (Sell-through rate) = Đã bán / (Đã bán + Tồn kho hiện tại)
+    // Hoặc đơn giản là Average Sold per Product
+    let conversionRate = 0;
+    if (totalProducts > 0) {
+      conversionRate = (totalSold / totalProducts).toFixed(1);
     }
 
     res.json({
@@ -114,15 +116,15 @@ export const getDashboardStats = async (req, res) => {
       pendingOrders,
       lowStockProducts,
       totalProducts,
-      conversionRate: parseFloat(conversionRate) || 0,
+      conversionRate, // Trả về trung bình số lượng bán/sp (VD: 5.2 cái/sp)
     });
   } catch (error) {
-    console.error("Error getting dashboard stats:", error);
-    res.status(500).json({ message: "Lỗi server" });
+    console.error("Error dashboard stats:", error);
+    res.status(500).json({ message: "Lỗi server khi lấy thống kê" });
   }
 };
 
-// 📦 Lấy đơn hàng gần đây
+// 📦 2. Lấy đơn hàng gần đây
 export const getRecentOrders = async (req, res) => {
   try {
     const sellerId = req.user._id;
@@ -131,170 +133,234 @@ export const getRecentOrders = async (req, res) => {
     const recentOrders = await Order.find({ sellerId })
       .sort({ createdAt: -1 })
       .limit(limit)
-      // 🔄 Sửa: total -> totalAmount
-      .select("id items totalAmount status paymentMethod createdAt")
-      .populate("userId", "name email"); // Lấy info khách hàng từ User Model nếu có
+      .select(
+        "totalAmount status paymentMethod createdAt shippingAddress userId items",
+      ) // Chọn field cần thiết
+      .populate("userId", "name email") // Lấy tên user nếu có
+      .lean(); // Dùng lean() để convert sang Plain Object ngay lập tức -> Nhanh hơn
 
     const formattedOrders = recentOrders.map((order) => ({
       id: order._id,
-      customer: order.userId?.name || order.shippingAddress?.name || "Khách lạ",
-      amount: order.totalAmount, // 🔄 Sửa total -> totalAmount
+      // Ưu tiên tên user login -> tên người nhận -> default
+      customer:
+        order.userId?.name ||
+        order.shippingAddress?.fullName ||
+        "Khách vãng lai",
+      amount: order.totalAmount,
       status: order.status,
-      date: order.createdAt.toISOString().split("T")[0],
-      itemsCount: order.items.length,
+      date: order.createdAt
+        ? new Date(order.createdAt).toISOString().split("T")[0]
+        : "N/A",
+      itemsCount: order.items?.length || 0,
       paymentMethod: order.paymentMethod,
     }));
 
     res.json(formattedOrders);
   } catch (error) {
-    console.error("Error getting recent orders:", error);
+    console.error("Error recent orders:", error);
     res.status(500).json({ message: "Lỗi server" });
   }
 };
 
-// 🔥 Lấy sản phẩm bán chạy (Top Products)
+// 🔥 3. Lấy sản phẩm bán chạy (Top Products)
 export const getTopProducts = async (req, res) => {
   try {
     const sellerId = req.user._id;
     const limit = parseInt(req.query.limit) || 5;
 
+    // Lấy sp chưa bị xóa (bao gồm cả active, hidden...)
     const topProducts = await Product.find({
       sellerId,
-      isDeleted: false,
+      status: { $ne: "deleted" },
     })
-      .sort({ sold: -1 }) // 🔄 Sửa: soldCount -> sold
+      .sort({ sold: -1 }) // Sort theo field 'sold' (đã đánh index)
       .limit(limit)
-      .select("name sold price stock thumbnail images");
+      .select("name sold price stock thumbnail images type variants") // Lấy thêm type và variants để check giá
+      .lean();
 
     const formattedProducts = topProducts.map((product) => {
-      // Tính doanh thu ước tính
-      const estimatedRevenue = product.sold * product.price; // 🔄 soldCount -> sold
+      const displayPrice = getProductDisplayPrice(product);
+      const estimatedRevenue = product.sold * displayPrice;
 
       return {
         id: product._id,
         name: product.name,
-        sales: product.sold, // 🔄 soldCount -> sold
+        sales: product.sold,
         revenue: estimatedRevenue,
-        price: product.price,
-        stock: product.stock,
-        image: getProductImage(product), // ✅ Dùng hàm helper xử lý ảnh
+        price: displayPrice,
+        // Nếu là variable, stock ở root có thể = 0, cần cộng tổng variants (nếu muốn chính xác)
+        // Nhưng ở đây hiển thị nhanh nên lấy stock root (nếu bạn có sync) hoặc để N/A
+        stock:
+          product.type === "variable"
+            ? product.variants.reduce((acc, curr) => acc + curr.stock, 0)
+            : product.stock,
+        image: getProductImage(product),
       };
     });
 
     res.json(formattedProducts);
   } catch (error) {
-    console.error("Error getting top products:", error);
+    console.error("Error top products:", error);
     res.status(500).json({ message: "Lỗi server" });
   }
 };
 
-// 🚀 API Tổng hợp (Dashboard Summary)
+// 🚀 4. API Tổng hợp (Dashboard Summary - Gọi 1 lần lấy hết)
 export const getDashboardSummary = async (req, res) => {
   try {
-    const sellerId = req.user._id;
+    const sellerId = new mongoose.Types.ObjectId(req.user._id);
 
-    const [stats, recentOrders, topProducts] = await Promise.all([
-      // 1. Stats
-      (async () => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
+    // 1. Xử lý thời gian (Giữ nguyên logic new Date() của bạn để khớp với server time hiện tại)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
-        const todayRevenueAgg = await Order.aggregate([
+    // 2. Query song song
+    const [orderStats, productStats, recentOrdersRaw, topProductsRaw] =
+      await Promise.all([
+        // --- A. Thống kê Đơn hàng & Doanh thu ---
+        Order.aggregate([
+          { $match: { sellerId } },
           {
-            $match: {
-              sellerId: new mongoose.Types.ObjectId(sellerId),
-              status: "completed",
-              createdAt: { $gte: today, $lt: tomorrow },
+            $facet: {
+              revenue: [
+                {
+                  $match: {
+                    status: "delivered",
+                    createdAt: { $gte: today, $lt: tomorrow },
+                  },
+                },
+                { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+              ],
+              counts: [
+                {
+                  $group: {
+                    _id: null,
+                    total: { $sum: 1 },
+                    pending: {
+                      $sum: {
+                        $cond: [
+                          { $in: ["$status", ["pending", "confirmed"]] },
+                          1,
+                          0,
+                        ],
+                      },
+                    },
+                  },
+                },
+              ],
             },
           },
-          { $group: { _id: null, total: { $sum: "$totalAmount" } } }, // 🔄 totalAmount
-        ]);
+        ]),
 
-        const [totalOrders, pendingOrders, lowStockProducts, totalProducts] =
-          await Promise.all([
-            Order.countDocuments({ sellerId }),
-            Order.countDocuments({
-              sellerId,
-              status: { $in: ["pending", "confirmed"] },
-            }),
-            Product.countDocuments({
-              sellerId,
-              stock: { $lte: 10 },
-              isActive: true,
-              isDeleted: false,
-              status: "active",
-            }),
-            Product.countDocuments({ sellerId, isDeleted: false }),
-          ]);
-
-        // Tính tổng sold
-        const soldStats = await Product.aggregate([
+        // --- B. Thống kê Sản phẩm (NÂNG CẤP LOGIC LOW STOCK) ---
+        Product.aggregate([
+          { $match: { sellerId, status: { $ne: "deleted" } } },
           {
-            $match: {
-              sellerId: new mongoose.Types.ObjectId(sellerId),
-              isDeleted: false,
+            $facet: {
+              total: [{ $count: "count" }],
+              lowStock: [
+                {
+                  $match: {
+                    status: "active",
+                    // 🔥 LOGIC MỚI: Check cả Simple và Variable
+                    $or: [
+                      { type: "simple", stock: { $lte: 10 } },
+                      {
+                        type: "variable",
+                        variants: { $elemMatch: { stock: { $lte: 10 } } }, // Quét vào mảng variants
+                      },
+                    ],
+                  },
+                },
+                { $count: "count" },
+              ],
+              sold: [{ $group: { _id: null, total: { $sum: "$sold" } } }],
             },
           },
-          { $group: { _id: null, totalSold: { $sum: "$sold" } } }, // 🔄 sold
-        ]);
-        const totalSold = soldStats[0]?.totalSold || 0;
+        ]),
 
-        return {
-          todayRevenue: todayRevenueAgg[0]?.total || 0,
-          totalOrders,
-          pendingOrders,
-          lowStockProducts,
-          totalProducts,
-          totalSold,
-        };
-      })(),
+        // --- C. Đơn hàng gần đây ---
+        Order.find({ sellerId })
+          .sort({ createdAt: -1 })
+          .limit(5)
+          .select("totalAmount status createdAt shippingAddress userId items")
+          .populate("userId", "name email") // Lấy thêm email để fallback tên
+          .lean(),
 
-      // 2. Recent Orders
-      Order.find({ sellerId })
-        .sort({ createdAt: -1 })
-        .limit(5)
-        .populate("userId", "name")
-        .lean(),
+        // --- D. Sản phẩm bán chạy ---
+        Product.find({ sellerId, status: { $ne: "deleted" } })
+          .sort({ sold: -1 })
+          .limit(5)
+          .select("name sold price thumbnail images type variants stock")
+          .lean(),
+      ]);
 
-      // 3. Top Products
-      Product.find({ sellerId, isDeleted: false })
-        .sort({ sold: -1 }) // 🔄 sold
-        .limit(5)
-        .select("name sold price thumbnail images")
-        .lean(),
-    ]);
+    // --- 3. FORMAT DATA (QUAN TRỌNG: Mapping y hệt cấu trúc cũ) ---
 
-    // Format Data
-    const formattedRecentOrders = recentOrders.map((order) => ({
-      id: order._id,
+    // Xử lý Stats (Thêm fallback || 0 để không null)
+    const statsData = {
+      todayRevenue: orderStats[0]?.revenue?.[0]?.total || 0,
+      totalOrders: orderStats[0]?.counts?.[0]?.total || 0,
+      pendingOrders: orderStats[0]?.counts?.[0]?.pending || 0,
+      totalProducts: productStats[0]?.total?.[0]?.count || 0,
+      lowStockProducts: productStats[0]?.lowStock?.[0]?.count || 0,
+    };
+
+    // Tính conversionRate (Giữ nguyên tên key này để FE không lỗi)
+    const totalSoldVal = productStats[0]?.sold?.[0]?.total || 0;
+    statsData.conversionRate =
+      statsData.totalProducts > 0
+        ? (totalSoldVal / statsData.totalProducts).toFixed(1)
+        : 0;
+
+    // Xử lý Recent Orders (Format date thành string YYYY-MM-DD như cũ)
+    const recentOrders = recentOrdersRaw.map((o) => ({
+      id: o._id,
       customer:
-        order.userId?.name || order.shippingAddress?.name || "Khách hàng",
-      amount: order.totalAmount, // 🔄 totalAmount
-      status: order.status,
-      date: order.createdAt
-        ? new Date(order.createdAt).toISOString().split("T")[0]
-        : "",
-      itemsCount: order.items ? order.items.length : 0,
+        o.userId?.name ||
+        o.shippingAddress?.fullName ||
+        o.userId?.email ||
+        "Khách lạ",
+      amount: o.totalAmount,
+      status: o.status,
+      // ⚠️ Giữ nguyên logic split string này để FE hiển thị đúng format cũ
+      date: o.createdAt
+        ? new Date(o.createdAt).toISOString().split("T")[0]
+        : "N/A",
+      itemsCount: o.items?.length || 0,
     }));
 
-    const formattedTopProducts = topProducts.map((product) => ({
-      id: product._id,
-      name: product.name,
-      sales: product.sold, // 🔄 sold
-      revenue: product.sold * product.price,
-      price: product.price,
-      image: getProductImage(product), // ✅ Xử lý ảnh
-    }));
+    // Xử lý Top Products (Tính toán lại Revenue & Stock chuẩn hơn)
+    const topProducts = topProductsRaw.map((p) => {
+      const displayPrice = getProductDisplayPrice(p);
 
+      // Tính tổng tồn kho nếu là variable
+      let currentStock = p.stock;
+      if (p.type === "variable" && Array.isArray(p.variants)) {
+        currentStock = p.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+      }
+
+      return {
+        id: p._id,
+        name: p.name,
+        sales: p.sold || 0,
+        revenue: (p.sold || 0) * displayPrice, // Tính doanh thu ước tính
+        price: displayPrice,
+        stock: currentStock, // Trả về tổng stock thực tế
+        image: getProductImage(p),
+      };
+    });
+
+    // 4. TRẢ VỀ RESPONSE (Giữ nguyên cấu trúc JSON phẳng)
     res.json({
-      stats,
-      recentOrders: formattedRecentOrders,
-      topProducts: formattedTopProducts,
+      stats: statsData, // Key này khớp với code cũ
+      recentOrders,
+      topProducts,
     });
   } catch (error) {
-    console.error("Error getting dashboard summary:", error);
+    console.error("Error dashboard summary:", error);
     res.status(500).json({ message: "Lỗi server" });
   }
 };

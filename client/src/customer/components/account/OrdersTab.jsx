@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect, useCallback } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import LoadingSpinner from "../common/LoadingSpinner";
-import { orderAPI } from "../../services/api"; // 🔥 Import API thật
+import { orderAPI } from "../../services/api";
 
 const OrdersTab = () => {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("all");
 
   // 1. Hàm lấy dữ liệu từ Server
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
       const response = await orderAPI.getMyOrders();
-      // axios interceptor của bạn trả về response.data nên:
       const data = response.data || response;
       setOrders(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -21,27 +21,38 @@ const OrdersTab = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [fetchOrders]);
 
-  // 2. Hàm xử lý Hủy đơn hàng thật
+  // 2. Logic điều hướng đánh giá từng sản phẩm
+  const handleGoToProductReview = (orderId, productId) => {
+    // Điều hướng đến trang chi tiết đơn hàng và yêu cầu mở modal đánh giá cho sản phẩm này
+    navigate(`/account/orders/${orderId}`, {
+      state: {
+        autoOpenReview: true,
+        targetProductId: productId,
+      },
+    });
+  };
+
+  // 3. Hàm xử lý Hủy đơn hàng
   const handleCancelOrder = async (orderId) => {
     const reason = window.prompt("Lý do hủy đơn hàng của bạn là gì?");
-    if (reason === null) return; // Nhấn Cancel trong prompt
+    if (reason === null) return;
 
     try {
       await orderAPI.cancelOrder(orderId, reason);
       alert("Đã gửi yêu cầu hủy đơn hàng!");
-      fetchOrders(); // Tải lại danh sách
+      fetchOrders();
     } catch (error) {
       alert(error.message || "Không thể hủy đơn hàng");
     }
   };
 
-  // Cấu hình các bộ lọc dựa trên dữ liệu thật
+  // Cấu hình các bộ lọc
   const statusFilters = [
     { id: "all", label: "Tất cả", count: orders.length },
     {
@@ -50,7 +61,7 @@ const OrdersTab = () => {
       count: orders.filter((o) => o.status === "pending").length,
     },
     {
-      id: "confirmed", // ✨ Thêm bộ lọc Đã xác nhận
+      id: "confirmed",
       label: "Đã xác nhận",
       count: orders.filter((o) => o.status === "confirmed").length,
     },
@@ -90,7 +101,7 @@ const OrdersTab = () => {
         label: "Chờ xác nhận",
       },
       confirmed: {
-        color: "bg-indigo-100 text-indigo-800", // ✨ Màu tím xanh cho sự tin cậy
+        color: "bg-indigo-100 text-indigo-800",
         label: "Đã xác nhận",
       },
       shipping: { color: "bg-blue-100 text-blue-800", label: "Đang giao" },
@@ -171,81 +182,89 @@ const OrdersTab = () => {
                 <span className="text-gray-500 text-xs">
                   Ngày đặt:{" "}
                   {new Date(order.createdAt || order.date).toLocaleDateString(
-                    "vi-VN"
+                    "vi-VN",
                   )}
                 </span>
               </div>
 
-              {/* Items */}
+              {/* Items - Tách riêng từng sản phẩm để đánh giá */}
               <div className="p-4 divide-y divide-gray-100">
                 {(order.items || order.itemsDetails || []).map((item, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center py-3 first:pt-0 last:pb-0"
+                    className="flex flex-col sm:flex-row sm:items-center py-4 first:pt-0 last:pb-0 gap-4"
                   >
-                    <img
-                      src={
-                        // 1. Ưu tiên Snapshot URL (String) lưu trực tiếp trong đơn hàng
-                        item.thumbnail ||
-                        // 2. Dự phòng lấy từ object product nếu có populate
-                        item.product?.thumbnail?.url ||
-                        item.product?.thumbnail ||
-                        // 3. Ảnh mặc định nếu cả 2 trên đều trống
-                        "https://via.placeholder.com/150?text=No+Image"
-                      }
-                      alt={item.name}
-                      className="w-16 h-16 object-cover rounded-md border"
-                      // Thêm xử lý lỗi nếu URL ảnh bị chết (404)
-                      onError={(e) => {
-                        e.target.src =
-                          "https://via.placeholder.com/150?text=Error";
-                      }}
-                    />
-                    <div className="ml-4 flex-grow">
-                      <p className="text-sm font-medium text-gray-900 line-clamp-1">
-                        {item.product?.name || item.name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Số lượng: {item.quantity}
-                      </p>
+                    <div className="flex items-center flex-1">
+                      <img
+                        src={
+                          item.thumbnail ||
+                          item.product?.thumbnail?.url ||
+                          "https://via.placeholder.com/150?text=No+Image"
+                        }
+                        alt={item.name}
+                        className="w-16 h-16 object-cover rounded-md border"
+                        onError={(e) => {
+                          e.target.src =
+                            "https://via.placeholder.com/150?text=Error";
+                        }}
+                      />
+                      <div className="ml-4 flex-grow">
+                        <p className="text-sm font-medium text-gray-900 line-clamp-1">
+                          {item.product?.name || item.name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Số lượng: {item.quantity}
+                        </p>
+                        <div className="text-sm font-semibold text-gray-900 mt-1">
+                          {formatPrice(item.price * item.quantity)}
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-sm font-semibold text-gray-900">
-                      {formatPrice(item.price * item.quantity)}
-                    </div>
+
+                    {/* Nút Đánh giá riêng cho từng sản phẩm */}
+                    {order.status === "delivered" && (
+                      <button
+                        onClick={() =>
+                          handleGoToProductReview(
+                            order._id || order.id,
+                            item.product?._id || item.product,
+                          )
+                        }
+                        className={`inline-flex items-center justify-center px-4 py-2 text-xs font-bold rounded-lg transition-all border ${
+                          item.isReviewed
+                            ? "bg-white text-blue-600 border-blue-200 hover:bg-blue-50"
+                            : "bg-blue-600 text-white border-transparent hover:bg-blue-700 shadow-sm"
+                        } min-w-[110px]`}
+                      >
+                        {item.isReviewed ? "Sửa đánh giá" : "Đánh giá"}
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
 
               {/* Footer */}
-              <div className="flex gap-2">
+              <div className="p-4 bg-gray-50 border-t border-gray-100 flex flex-wrap gap-2 justify-end">
                 <Link
                   to={`/account/orders/${order._id || order.id}`}
-                  className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors bg-white shadow-sm"
                 >
-                  Chi tiết
+                  Xem chi tiết đơn hàng
                 </Link>
 
-                {/* ✨ CHỈ cho phép hủy khi đang ở trạng thái pending */}
                 {order.status === "pending" && (
                   <button
                     onClick={() => handleCancelOrder(order._id || order.id)}
-                    className="px-4 py-2 text-sm bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
                   >
                     Hủy đơn
                   </button>
                 )}
 
-                {/* Hiển thị nút liên hệ nếu đã xác nhận hoặc đang giao */}
                 {(order.status === "confirmed" ||
                   order.status === "shipping") && (
-                  <button className="px-4 py-2 text-sm border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50">
+                  <button className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors">
                     Liên hệ Shop
-                  </button>
-                )}
-
-                {order.status === "delivered" && (
-                  <button className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                    Đánh giá
                   </button>
                 )}
               </div>

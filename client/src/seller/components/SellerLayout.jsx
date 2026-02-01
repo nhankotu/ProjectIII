@@ -21,10 +21,8 @@ const SellerLayout = () => {
     { path: "/seller/dashboard", label: "Tổng Quan", icon: "📊" },
     { path: "/seller/products", label: "Sản Phẩm", icon: "🛍️" },
     { path: "/seller/orders", label: "Đơn Hàng", icon: "📦" },
-
-    // 👇👇👇 THÊM MỤC FLASH SALE VÀO ĐÂY 👇👇👇
+    { path: "/seller/messages", label: "Tin Nhắn", icon: "💬" },
     { path: "/seller/flash-sales", label: "Flash Sale", icon: "⚡" },
-    // 👆👆👆 -------------------------------- 👆👆👆
 
     { path: "/seller/inventory", label: "Tồn Kho", icon: "📋" },
     { path: "/seller/finance", label: "Tài Chính", icon: "💰" },

@@ -2,12 +2,15 @@ import mongoose from "mongoose";
 
 const connectDB = async () => {
   try {
-    mongoose.connect(process.env.MONGO_URI);
+    // 👇 THÊM 'await' VÀO ĐÂY
+    const conn = await mongoose.connect(process.env.MONGO_URI);
 
-    console.log("✅ Đã kết nối MongoDB thành công");
+    // In ra host và tên Database để chắc chắn bạn đã vào đúng cái mới
+    console.log(`✅ Đã kết nối MongoDB thành công: ${conn.connection.host}`);
+    console.log(`📂 Database đang dùng: ${conn.connection.name}`);
   } catch (err) {
-    console.error("❌ Lỗi kết nối MongoDB:", err.message);
-    process.exit(1); // Dừng server nếu kết nối thất bại
+    console.error(`❌ Lỗi kết nối MongoDB: ${err.message}`);
+    process.exit(1);
   }
 };
 

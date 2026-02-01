@@ -62,7 +62,9 @@ export const deleteReview = async (req, res) => {
 // Hàm bổ trợ tính toán lại rating (để dùng chung)
 async function updateProductRating(productId) {
   const stats = await Review.aggregate([
-    { $match: { productId: new mongoose.Types.ObjectId(productId) } },
+    {
+      $match: { productId: new mongoose.Types.ObjectId(productId.toString()) },
+    },
     {
       $group: {
         _id: "$productId",
@@ -85,3 +87,30 @@ async function updateProductRating(productId) {
     });
   }
 }
+export const getProductReviews = async (req, res) => {
+  try {
+    const { id } = req.params; // Đây là productId truyền từ URL
+
+    const reviews = await Review.find({ productId: id })
+      .populate("userId", "name avatar username") // Lấy thông tin user (để hiện tên & ảnh)
+      .sort({ createdAt: -1 }); // Đánh giá mới nhất hiện lên đầu
+
+    // Map lại dữ liệu để khớp với Frontend (đổi userId thành user nếu cần)
+    const formattedReviews = reviews.map((rev) => {
+      const obj = rev.toObject();
+      return {
+        ...obj,
+        user: obj.userId, // Frontend của bạn đang đọc trường 'user'
+        isVerified: !!obj.orderId, // Nếu có orderId thì mặc định là đã mua hàng
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: formattedReviews,
+    });
+  } catch (error) {
+    console.error("❌ getProductReviews Error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};

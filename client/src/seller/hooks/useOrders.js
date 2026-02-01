@@ -1,133 +1,128 @@
-import { useState, useEffect, useCallback } from "react";
-
-const API_BASE = import.meta.env.VITE_API_URL;
+import { useState, useCallback, useEffect } from "react";
+import { orderApi } from "../services/api";
 
 export const useOrders = () => {
   const [orders, setOrders] = useState([]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+    totalDocs: 0,
+  });
+
+  const [filters, setFilters] = useState({
+    page: 1,
+    limit: 10,
+    status: "all",
+  });
+
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    confirmed: 0,
+    shipping: 0,
+    delivered: 0,
+    cancelled: 0,
+  });
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const getToken = () => localStorage.getItem("token");
-
-  // Dùng useCallback để tránh re-render vô tận
   const fetchOrders = useCallback(async () => {
-    const token = getToken();
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
-    setError(null);
-
     try {
-      const res = await fetch(`${API_BASE}/api/seller/orders`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const params = {
+        page: filters.page,
+        limit: filters.limit,
+        status: filters.status === "all" ? undefined : filters.status,
+      };
 
-      if (!res.ok) throw new Error(`Lỗi server: ${res.status}`);
-
-      const data = await res.json();
+      const data = await orderApi.getAll(params);
 
       if (data.success) {
-        // Đảm bảo luôn gán là một mảng
-        setOrders(Array.isArray(data.data) ? data.data : []);
-      } else {
-        throw new Error(data.message || "Không thể tải danh sách đơn hàng");
+        setOrders(data.data || []);
+        if (data.pagination) {
+          setPagination(data.pagination);
+        }
       }
     } catch (err) {
-      console.error("❌ Error fetching orders:", err);
-      setError(err.message);
-      setOrders([]); // Reset về mảng rỗng nếu lỗi
+      console.error("Lỗi tải đơn hàng:", err);
+      setError(err.response?.data?.message || err.message);
+      setOrders([]);
     } finally {
       setLoading(false);
+    }
+  }, [filters]);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const data = await orderApi.getStats();
+      if (data.success) {
+        setStats(data.data);
+      }
+    } catch (err) {
+      console.error("Lỗi tải thống kê:", err);
     }
   }, []);
 
   useEffect(() => {
     fetchOrders();
-  }, [fetchOrders]);
+    fetchStats();
+  }, [fetchOrders, fetchStats]);
 
   const updateOrderStatus = async (orderId, newStatus) => {
-    const token = getToken();
-    if (!token) return { success: false, error: "Phiên đăng nhập hết hạn" };
-
     try {
-      // 1. Optimistic update (Cập nhật giao diện trước cho nhanh)
+      const previousOrders = [...orders];
+
+      // Optimistic update
       setOrders((prev) =>
         prev.map((order) =>
-          order._id === orderId || order.id === orderId // Kiểm tra cả _id và id
-            ? {
-                ...order,
-                status: newStatus,
-                updatedAt: new Date().toISOString(),
-              }
-            : order
-        )
+          order._id === orderId ? { ...order, status: newStatus } : order,
+        ),
       );
 
-      // 2. Gọi API Update - ⚠️ HÃY KIỂM TRA ROUTE NÀY Ở BACKEND CỦA BẠN
-      // Nếu Backend là /api/seller/orders/status/:id thì sửa lại cho đúng
-      const res = await fetch(`${API_BASE}/api/seller/orders/${orderId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
+      const res = await orderApi.updateStatus(orderId, newStatus);
 
-      if (!res.ok)
-        throw new Error(`Lỗi ${res.status}: Không tìm thấy đơn hàng`);
-
-      const data = await res.json();
-
-      if (!data.success) throw new Error(data.message);
-
-      // Cập nhật lại dữ liệu chuẩn từ server
-      setOrders((prev) =>
-        prev.map((order) =>
-          order._id === orderId || order.id === orderId ? data.data : order
-        )
-      );
-
-      return { success: true, data: data.data };
+      if (res.success) {
+        setOrders((prev) =>
+          prev.map((order) => (order._id === orderId ? res.data : order)),
+        );
+        fetchStats(); // Cập nhật lại số liệu thống kê ngay lập tức
+        return { success: true, message: res.message };
+      } else {
+        setOrders(previousOrders);
+        return { success: false, message: res.message };
+      }
     } catch (err) {
-      console.error("❌ Error updating status:", err);
-      fetchOrders(); // Tải lại danh sách để đồng bộ nếu lỗi
-      return { success: false, error: err.message };
+      fetchOrders(); // Revert bằng cách tải lại
+      const msg = err.response?.data?.message || err.message;
+      return { success: false, message: msg };
     }
   };
 
-  const getOrderCounts = useCallback(() => {
-    const counts = {
-      total: orders.length,
-      pending: 0,
-      confirmed: 0,
-      shipping: 0,
-      delivered: 0,
-      cancelled: 0,
-    };
+  const changePage = (newPage) => {
+    setFilters((prev) => ({ ...prev, page: newPage }));
+  };
 
-    orders.forEach((order) => {
-      if (counts.hasOwnProperty(order.status)) {
-        counts[order.status]++;
-      }
-    });
+  const changeStatus = (newStatus) => {
+    setFilters((prev) => ({ ...prev, status: newStatus, page: 1 }));
+  };
 
-    return counts;
-  }, [orders]);
+  const refreshAll = useCallback(() => {
+    fetchOrders();
+    fetchStats();
+  }, [fetchOrders, fetchStats]);
 
   return {
     orders,
+    pagination,
     loading,
     error,
+    filter: filters,
+    stats,
     updateOrderStatus,
-    getOrderCounts,
-    refetch: fetchOrders,
+    changePage,
+    changeStatus,
+    refresh: refreshAll,
   };
 };

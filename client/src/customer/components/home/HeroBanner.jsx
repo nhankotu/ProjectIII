@@ -5,36 +5,45 @@ const HeroBanner = () => {
   const banners = [
     {
       id: 1,
-      title: "Summer Sale",
-      subtitle: "Up to 70% Off",
-      description: "Don't miss our biggest sale of the year",
+      // SLIDE 1: Đánh vào sự kết hợp (Sale + Voucher)
+      title: "Sale Chồng Sale",
+      subtitle: "Giảm thêm 15% bằng Voucher",
+      description:
+        "Đã rẻ nay còn rẻ hơn! Nhập mã 'SIEUHOT' khi thanh toán các sản phẩm Flash Sale.",
+      // Ảnh: Người cầm túi mua sắm vui vẻ hoặc hình ảnh % giảm giá lớn
       image:
-        "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
-      buttonText: "Shop Now",
+        "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
+      buttonText: "Săn Deal & Dùng Mã",
       buttonLink: "/flash-sale",
-      color: "from-blue-500 to-purple-600",
+      color: "from-purple-600 to-blue-600", // Màu tím tạo cảm giác sang trọng/huyền bí
     },
     {
       id: 2,
-      title: "New Collection",
-      subtitle: "2024 Trends",
-      description: "Discover the latest fashion trends",
+      // SLIDE 2: Tặng mã Voucher trực tiếp (User nhìn thấy mã là muốn mua)
+      title: "Tặng Bạn Mới 50K",
+      subtitle: "Voucher: WELCOME2024",
+      description:
+        "Món quà làm quen! Áp dụng ngay cho đơn hàng đầu tiên tại trang Flash Sale.",
+      // Ảnh: Hộp quà hoặc thiệp mời
       image:
-        "https://images.unsplash.com/photo-1441986300917-64674bd600d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
-      buttonText: "Explore",
-      buttonLink: "/new-arrivals",
-      color: "from-pink-500 to-red-600",
+        "https://images.unsplash.com/photo-1513201099705-a9746e1e201f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
+      buttonText: "Mua Ngay Kẻo Hết",
+      buttonLink: "/flash-sale",
+      color: "from-pink-500 to-rose-500", // Màu hồng/đỏ tạo sự thân thiện, quà tặng
     },
     {
       id: 3,
-      title: "Free Shipping",
-      subtitle: "On All Orders",
-      description: "No minimum purchase required",
+      // SLIDE 3: Freeship (Voucher vận chuyển) - Yếu tố chốt đơn quan trọng nhất
+      title: "Freeship Đơn 0Đ",
+      subtitle: "Miễn phí vận chuyển toàn quốc",
+      description:
+        "Không lo về giá ship. Chỉ cần chọn món, chúng tôi giao tận nơi miễn phí hôm nay.",
+      // Ảnh: Xe giao hàng hoặc hộp hàng
       image:
-        "https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
-      buttonText: "Learn More",
-      buttonLink: "/shipping",
-      color: "from-green-500 to-teal-600",
+        "https://images.unsplash.com/photo-1620917290616-e258c729ce92?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
+      buttonText: "Đặt Hàng Ngay",
+      buttonLink: "/flash-sale",
+      color: "from-emerald-500 to-teal-500", // Màu xanh lá tạo cảm giác "tín", an toàn
     },
   ];
 

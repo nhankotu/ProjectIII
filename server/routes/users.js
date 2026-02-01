@@ -1,20 +1,22 @@
 import express from "express";
-import { registerUser } from "../controllers/registerController.js";
-import { loginUser } from "../controllers/loginController.js";
-import { authCheck, uploadAvatar } from "../controllers/user/authController.js";
+import {
+  authCheck,
+  uploadAvatar,
+  loginUser,
+  registerUser,
+} from "../controllers/user/authController.js";
 import { requireAuth } from "../middleware/authMiddleware.js";
 import {
   updateProfile,
   getProfile,
-} from "../controllers/user/userController.js";
-import { uploadAvatar as uploadMiddleware } from "../middleware/uploadMiddleware.js"; // 👈 IMPORT TỪ MIDDLEWARE
-import {
   getAddresses,
   addAddress,
   updateAddress,
   deleteAddress,
   setDefaultAddress,
-} from "../controllers/user/addressController.js";
+} from "../controllers/user/userController.js";
+import { uploadAvatar as uploadMiddleware } from "../middleware/uploadMiddleware.js"; // 👈 IMPORT TỪ MIDDLEWARE
+
 const router = express.Router();
 
 // Routes - Clean và gọn gàng

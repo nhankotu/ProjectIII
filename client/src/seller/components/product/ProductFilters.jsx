@@ -37,11 +37,36 @@ const ProductManagement = () => {
   };
 
   const filteredProducts = products.filter((product) => {
+    // 1. Search
     const matchesSearch = product.name
-      .toLowerCase()
+      ?.toLowerCase()
       .includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || product.status === statusFilter;
+
+    // 2. Filter Status & Stock
+    let matchesStatus = true;
+
+    // Lấy stock thực tế để so sánh (đề phòng backend chưa cộng dồn)
+    // Nhưng nếu bạn đã sửa backend như tôi bảo thì product.stock là đủ.
+    const realStock = product.stock || 0;
+
+    if (statusFilter !== "all") {
+      switch (statusFilter) {
+        case "out_of_stock":
+          matchesStatus = realStock === 0;
+          break;
+        case "low_stock":
+          matchesStatus = realStock > 0 && realStock <= 10;
+          break;
+        case "active":
+        case "hidden":
+        case "draft":
+          matchesStatus = product.status === statusFilter;
+          break;
+        default:
+          matchesStatus = true;
+      }
+    }
+
     return matchesSearch && matchesStatus;
   });
 

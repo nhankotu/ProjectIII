@@ -1,209 +1,154 @@
-import ShopSettings from "../../models/ShopSetting.js";
+import Shop from "../../models/Shop.js"; // Import đúng Model Shop mới
 import cloudinary from "../../config/cloudinary.js";
 
-// GET /api/shop/settings - Lấy shop settings
+// ================= LẤY THÔNG TIN SHOP =================
 export const getShopSettings = async (req, res) => {
   try {
-    const sellerId = req.user.id;
+    const sellerId = req.user.id; // Lấy ID user từ token
 
-    console.log("🔄 Fetching shop settings for seller:", sellerId);
+    // 1. Tìm Shop theo 'owner' thay vì 'sellerId'
+    let shop = await Shop.findOne({ owner: sellerId });
 
-    let settings = await ShopSettings.findOne({ sellerId });
+    // 2. Nếu chưa có Shop, tạo Shop mặc định (Dạng Draft)
+    if (!shop) {
+      console.log("📝 Creating new shop for seller:", sellerId);
 
-    // Nếu chưa có settings, tạo mới với data mặc định theo model mới
-    if (!settings) {
-      console.log("📝 Creating new shop settings for seller:", sellerId);
+      // Tạo tên shop tạm thời (vì name required & unique)
+      const defaultName = `Shop của ${req.user.name || "bạn"} ${Date.now()
+        .toString()
+        .slice(-4)}`;
 
-      settings = await ShopSettings.create({
-        sellerId,
-        basicInfo: {
-          shopName: `${req.user.username}'s Shop`,
-          description: "Mô tả cửa hàng của bạn...",
-          category: "Thời trang",
-          establishedYear: new Date().getFullYear(), // ✅ Thêm năm thành lập
-          logo: "",
-          banner: "",
-        },
-        policies: {
-          returnPolicy: "Chấp nhận đổi trả trong 7 ngày",
-          warrantyPolicy: "Bảo hành 1 tháng", // ✅ Thêm chính sách bảo hành
-          paymentMethods: ["COD", "Chuyển khoản"],
-          processingTime: "1-2 ngày làm việc", // ✅ Thêm thời gian xử lý
-          supportTime: "8:00 - 22:00", // ✅ Thêm thời gian hỗ trợ
-        },
-        shipping: {
-          nationwide: true,
-          freeShippingThreshold: 300000,
-          fixedShippingFee: 25000,
-          shippingPartners: ["GHTK", "GHN"], // ✅ Thêm đối tác vận chuyển
-          supportedRegions: ["Toàn quốc"],
-        },
+      shop = await Shop.create({
+        owner: sellerId,
+        name: defaultName,
         contact: {
-          phone: "",
-          email: "",
-          address: "",
-          socialMedia: {
-            facebook: "",
-            instagram: "", // ✅ Thêm Instagram
-            tiktok: "",
-            zalo: "",
-          },
+          phone: req.user.phone || "09xxxxxxxxx", // Placeholder để qua validate
+          address: "Chưa cập nhật",
         },
-        seo: {
-          metaTitle: "",
-          metaDescription: "",
-          keywords: [],
-          customDomain: "",
-        },
+        // Các trường khác sẽ lấy default từ Model
       });
     }
 
-    console.log("✅ Shop settings found/created:", settings._id);
-
     res.json({
       success: true,
-      message: "Lấy cài đặt cửa hàng thành công",
-      data: settings,
+      message: "Lấy thông tin Shop thành công",
+      data: shop,
     });
   } catch (error) {
-    console.error("❌ Lỗi lấy shop settings:", error);
-    res.status(500).json({
-      success: false,
-      message: "Lỗi server khi lấy cài đặt cửa hàng",
-      error: error.message,
-    });
+    console.error("❌ Lỗi lấy thông tin Shop:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Lỗi server", error: error.message });
   }
 };
-// PUT /api/shop/settings - Cập nhật shop settings
+
+// ================= CẬP NHẬT SHOP =================
 export const updateShopSettings = async (req, res) => {
   try {
     const sellerId = req.user.id;
-    const updateData = req.body;
+    const updateData = req.body; // Dữ liệu gửi lên phải khớp cấu trúc Model
 
-    console.log("🔄 Updating shop settings for seller:", sellerId);
-    console.log("📦 Update data:", updateData);
+    console.log("🔄 Updating shop for owner:", sellerId);
 
-    // Tìm và cập nhật settings
-    const settings = await ShopSettings.findOneAndUpdate(
-      { sellerId },
+    // Xử lý riêng cho Category (nếu gửi lên chuỗi rỗng thì xóa để tránh lỗi ObjectId)
+    if (updateData.category === "") {
+      delete updateData.category;
+    }
+
+    // Tìm và cập nhật
+    const shop = await Shop.findOneAndUpdate(
+      { owner: sellerId },
       { $set: updateData },
       {
-        new: true, // Trả về document đã update
-        upsert: true, // Tạo mới nếu chưa có
-        runValidators: true,
+        new: true, // Trả về data mới
+        runValidators: true, // Chạy validate (check unique name, required...)
       }
     );
 
-    console.log("✅ Shop settings updated:", settings._id);
+    if (!shop) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Không tìm thấy Shop của bạn" });
+    }
 
     res.json({
       success: true,
-      message: "Cập nhật cài đặt cửa hàng thành công",
-      data: settings,
+      message: "Cập nhật Shop thành công",
+      data: shop,
     });
   } catch (error) {
-    console.error("❌ Lỗi cập nhật shop settings:", error);
-    res.status(500).json({
-      success: false,
-      message: "Lỗi server khi cập nhật cài đặt cửa hàng",
-      error: error.message,
-    });
+    console.error("❌ Lỗi cập nhật Shop:", error);
+
+    // Xử lý lỗi trùng tên Shop
+    if (error.code === 11000 && error.keyPattern?.name) {
+      return res.status(400).json({
+        success: false,
+        message: "Tên Shop này đã được sử dụng. Vui lòng chọn tên khác.",
+      });
+    }
+
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// POST /api/shop/settings/upload - Upload logo/banner lên Cloudinary
+// ================= UPLOAD LOGO/BANNER =================
 export const uploadShopImage = async (req, res) => {
-  // 🔥 KHAI BÁO type Ở NGOÀI TRY-CATCH
   let type;
-
   try {
     const sellerId = req.user.id;
-    type = req.body.type; // 'logo' hoặc 'banner' - 👈 DÙNG = thay vì {}
+    type = req.body.type; // 'logo' hoặc 'banner'
     const file = req.file;
 
-    console.log("📦 Upload request data:", {
-      sellerId,
-      type,
-      hasFile: !!file,
-      fileInfo: file
-        ? {
-            originalname: file.originalname,
-            mimetype: file.mimetype,
-            size: file.size,
-          }
-        : "No file",
-    });
-
-    if (!file) {
-      return res.status(400).json({
-        success: false,
-        message: "Không có file được tải lên",
-      });
-    }
-
+    // 1. Validate Input
+    if (!file)
+      return res
+        .status(400)
+        .json({ success: false, message: "Chưa chọn file ảnh" });
     if (!["logo", "banner"].includes(type)) {
-      return res.status(400).json({
-        success: false,
-        message: "Loại file không hợp lệ. Chỉ chấp nhận 'logo' hoặc 'banner'",
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "Type phải là 'logo' hoặc 'banner'" });
     }
 
-    console.log(`🔄 Uploading ${type} to Cloudinary for seller:`, sellerId);
-
-    // 🔥 UPLOAD TỪ BUFFER (Memory Storage)
+    // 2. Upload lên Cloudinary
     const result = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           folder: `shop-images/${sellerId}`,
+          resource_type: "image",
           transformation:
             type === "logo"
-              ? [{ width: 200, height: 200, crop: "fill", quality: "auto" }]
-              : [{ width: 1200, height: 400, crop: "fill", quality: "auto" }],
+              ? [{ width: 300, height: 300, crop: "fill" }] // Logo vuông
+              : [{ width: 1200, height: 400, crop: "fill" }], // Banner dài
         },
         (error, result) => {
-          if (error) {
-            console.error(`❌ Cloudinary upload error for ${type}:`, error);
-            reject(error);
-          } else {
-            console.log(
-              `✅ Cloudinary upload success for ${type}:`,
-              result.public_id
-            );
-            resolve(result);
-          }
+          if (error) reject(error);
+          else resolve(result);
         }
       );
-
-      // GHI BUFFER TRỰC TIẾP LÊN CLOUDINARY
       uploadStream.end(file.buffer);
     });
 
-    // Cập nhật URL vào MongoDB
-    const updateField = `basicInfo.${type}`;
-    const settings = await ShopSettings.findOneAndUpdate(
-      { sellerId },
-      { $set: { [updateField]: result.secure_url } },
-      { new: true, upsert: true }
+    // 3. Cập nhật URL vào DB (Trực tiếp vào root, không qua basicInfo)
+    // Dynamic Key: nếu type='logo' -> update { logo: ... }
+    const shop = await Shop.findOneAndUpdate(
+      { owner: sellerId },
+      { $set: { [type]: result.secure_url } },
+      { new: true }
     );
-
-    console.log(`✅ ${type} uploaded successfully:`, result.public_id);
 
     res.json({
       success: true,
-      message: `Tải lên ${type} thành công`,
+      message: `Cập nhật ${type} thành công`,
       data: {
         imageUrl: result.secure_url,
-        public_id: result.public_id,
-        settings,
+        shop: shop,
       },
     });
   } catch (error) {
-    // 🔥 BÂY GIỜ type ĐÃ ĐƯỢC ĐỊNH NGHĨA
     console.error(`❌ Lỗi upload ${type}:`, error);
-    res.status(500).json({
-      success: false,
-      message: `Lỗi server khi tải lên ${type}`,
-      error: error.message,
-    });
+    res
+      .status(500)
+      .json({ success: false, message: "Lỗi server khi upload ảnh" });
   }
 };

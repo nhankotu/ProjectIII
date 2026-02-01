@@ -16,13 +16,25 @@ const adminApi = {
   deleteProduct: (id) => apiClient.delete(`/api/admin/products/${id}`),
 
   // ================= FLASH SALES =================
+  // 1. Lấy danh sách sản phẩm chờ duyệt
   getPendingFlashSales: () => apiClient.get("/api/admin/flash-sales/pending"),
 
-  approveFlashSale: (id) =>
-    apiClient.put(`/api/admin/flash-sales/approve/${id}`),
+  // 2. Duyệt sản phẩm (Gửi object thay vì ID trên URL để khớp logic mới)
+  approveFlashSale: (payload) =>
+    apiClient.post("/api/admin/flash-sales/approve", payload),
 
-  rejectFlashSale: (id) => apiClient.put(`/api/admin/flash-sales/reject/${id}`),
+  // 3. Từ chối sản phẩm
+  rejectFlashSale: (payload) =>
+    apiClient.post("/api/admin/flash-sales/reject", payload),
 
+  // 4. Lấy danh sách tất cả khung giờ
+  getAllSessions: () => apiClient.get("/api/admin/flash-sales/sessions"),
+
+  // 5. Tạo khung giờ mới (Hỗ trợ FormData cho Banner)
+  createFlashSaleSession: (data) =>
+    apiClient.post("/api/admin/flash-sales/sessions", data, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
   // ================= CATEGORIES =================
   // Lưu ý: Dựa trên router.post("/categories") -> URL là /api/admin/categories
   // adminApi.js
@@ -38,7 +50,7 @@ const adminApi = {
     // Nếu chỉ là JSON thông thường
     return apiClient.post("/api/admin/categories", data);
   },
-
+  getAdminCategory: () => apiClient.get("/api/admin/categories/tree"),
   deleteCategory: (id) => apiClient.delete(`/api/admin/categories/${id}`),
 
   // ================= USERS / SELLERS =================
@@ -51,6 +63,14 @@ const adminApi = {
   unbanUser: (id) => apiClient.put(`/api/admin/users/${id}/unban`),
   // ================= ADMIN ACCOUNT =================
   createAdmin: (data) => apiClient.post("/api/admin/create", data),
+  // ================= REVENUE =================
+  // 1. Thống kê tổng quan sàn (GMV, Phí sàn, Biểu đồ)
+  getPlatformRevenue: (params) =>
+    apiClient.get("/api/admin/revenue/platform", { params }), // params: { range: 'week' }
+
+  // 2. Thống kê doanh thu theo từng shop
+  getShopsRevenue: (params) =>
+    apiClient.get("/api/admin/revenue/shops", { params }),
 };
 
 export default adminApi;

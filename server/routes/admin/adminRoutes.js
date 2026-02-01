@@ -1,15 +1,21 @@
 import express from "express";
+import multer from "multer";
+
+// Controllers
 import { createAdmin } from "../../controllers/admin/adminController.js";
 import { requireAuth, requireAdmin } from "../../middleware/authMiddleware.js";
 import { uploadForCloudinary } from "../../middleware/uploadMiddleware.js";
 import {
+  createFlashSaleSession,
+  getAllSessions,
   getPendingFlashSales,
-  approveFlashSale,
-  rejectFlashSale,
+  approveFlashSaleItem,
+  rejectFlashSaleItem,
 } from "../../controllers/admin/flashSaleController.js";
 import {
   createCategory,
   deleteCategory,
+  getAdminCategoryTree,
 } from "../../controllers/admin/categoryController.js";
 import {
   getAllProducts,
@@ -18,71 +24,75 @@ import {
   deleteProduct,
   getProductStats,
 } from "../../controllers/admin/productController.js";
-
 import {
   approveSeller,
   banUser,
   getAllUsers,
   unbanUser,
 } from "../../controllers/admin/userController.js";
-
-import multer from "multer";
+// 🔥 Import các hàm doanh thu
+import {
+  getAdminFinancialOverview,
+  getShopsRevenue, // Đảm bảo bạn đã export hàm này trong controller
+} from "../../controllers/admin/revenueController.js";
 
 const router = express.Router();
 
-// 1. Cấu hình multer (Dùng memoryStorage để lấy buffer upload lên Cloudinary)
+// Cấu hình multer
 const upload = multer({ storage: multer.memoryStorage() });
 
-// --- MIDDLEWARE ---
+// --- MIDDLEWARE BẢO VỆ (Tất cả route admin đều đi qua đây) ---
 router.use(requireAuth);
 router.use(requireAdmin);
 
 // ============================
-// 1. QUẢN LÝ ADMIN ACCOUNT
+// 1. QUẢN LÝ TÀI KHOẢN ADMIN
 // ============================
 router.post("/create", createAdmin);
 
 // ============================
-// 2. QUẢN LÝ FLASH SALES
+// 2. QUẢN LÝ NGƯỜI DÙNG & SELLER
 // ============================
-router.get("/flash-sales/pending", getPendingFlashSales);
-router.put("/flash-sales/approve/:id", approveFlashSale);
-router.put("/flash-sales/reject/:id", rejectFlashSale);
+router.get("/users", getAllUsers);
+router.put("/users/:id/approve", approveSeller);
+router.put("/users/:id/ban", banUser);
+router.put("/users/:id/unban", unbanUser);
 
 // ============================
-// 3. QUẢN LÝ CATEGORY (Thêm prefix /categories)
+// 3. QUẢN LÝ DOANH THU (REVENUE)
 // ============================
+// Khớp với trang: /admin/revenue/platform
+router.get("/revenue/platform", getAdminFinancialOverview);
 
-router.post(
-  "/categories",
-  uploadForCloudinary, // Thêm nó vào đây để giải mã dữ liệu cho Admin
-  createCategory
-);
-
-// DELETE /api/admin/categories/:id
-router.delete("/categories/:id", deleteCategory);
+// Khớp với trang: /admin/revenue/shops
+router.get("/revenue/shops", getShopsRevenue);
 
 // ============================
-// 4. QUẢN LÝ PRODUCT (Thêm prefix /products)
+// 4. QUẢN LÝ SẢN PHẨM (PRODUCTS)
 // ============================
-// GET /api/admin/products/stats
-// ⚠️ QUAN TRỌNG: Route cụ thể (stats) phải đặt TRƯỚC route có tham số (:id)
-router.get("/products/stats", getProductStats);
-
-// GET /api/admin/products
+router.get("/products/stats", getProductStats); // Phải đặt trước :id
 router.get("/products", getAllProducts);
-
-// GET /api/admin/products/:id
 router.get("/products/:id", getProductDetail);
-
-// PUT /api/admin/products/:id/status
 router.put("/products/:id/status", updateProductStatus);
-
-// DELETE /api/admin/products/:id
 router.delete("/products/:id", deleteProduct);
 
-router.get("/users", getAllUsers); // Xem danh sách user
-router.put("/users/:id/approve", approveSeller); // Duyệt
-router.put("/users/:id/ban", banUser); // Khóa
-router.put("/users/:id/unban", unbanUser); // mở
+// ============================
+// 5. QUẢN LÝ DANH MỤC (CATEGORIES)
+// ============================
+router.post("/categories", uploadForCloudinary, createCategory);
+router.delete("/categories/:id", deleteCategory);
+router.get("/categories/tree", getAdminCategoryTree);
+// ============================
+// 6. QUẢN LÝ FLASH SALES
+// ============================
+router.post(
+  "/flash-sales/sessions",
+  uploadForCloudinary,
+  createFlashSaleSession,
+);
+router.get("/flash-sales/sessions", getAllSessions);
+router.get("/flash-sales/pending", getPendingFlashSales);
+router.post("/flash-sales/approve", approveFlashSaleItem);
+router.post("/flash-sales/reject", rejectFlashSaleItem);
+
 export default router;

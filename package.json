@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "mongoose-erd-generator": "^0.0.5"
+  }
+}

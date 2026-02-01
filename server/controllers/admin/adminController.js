@@ -1,15 +1,12 @@
 // controllers/admin/authController.js
 import User from "../../models/User.js";
-import jwt from "jsonwebtoken";
 
 export const createAdmin = async (req, res) => {
   try {
-    // Không cần lấy secretKey nữa
-    const { email, password } = req.body;
+    // 1. Nhận thêm 'name' từ body (để Admin có tên thật thay vì Random)
+    const { email, password, name } = req.body;
 
-    // console.log("Người thực hiện tạo:", req.user.username); // Có thể lấy thông tin người tạo từ req.user
-
-    // 1. Validate input (Bỏ bước check Secret Key)
+    // Validate Input
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -20,38 +17,38 @@ export const createAdmin = async (req, res) => {
     if (password.length < 6) {
       return res.status(400).json({
         success: false,
-        message: "Password phải có ít nhất 6 ký tự!",
+        message: "Mật khẩu phải có ít nhất 6 ký tự!",
       });
     }
 
-    // 2. Kiểm tra tồn tại
-    const existingAdmin = await User.findOne({
-      $or: [{ email: email }, { role: "admin" }],
-      // ⚠️ Lưu ý: Logic này nghĩa là nếu email trùng HOẶC đã có bất kỳ admin nào thì chặn.
-      // Nếu bạn muốn cho phép nhiều admin, hãy sửa dòng trên thành: { email: email } thôi.
-    });
-
-    // Sửa lại logic check tồn tại để cho phép nhiều admin (nếu muốn):
+    // 2. Kiểm tra tồn tại (Logic: Email trùng là chặn)
     const emailExist = await User.findOne({ email: email });
     if (emailExist) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Email này đã được sử dụng!" });
+      return res.status(400).json({
+        success: false,
+        message: "Email này đã được sử dụng!",
+      });
     }
 
-    // 3. Tạo Admin mới
+    // 3. Tạo Admin mới (Đồng bộ với Model)
     const newAdmin = new User({
-      username: "Admin " + Math.floor(Math.random() * 1000), // Tạo tên ngẫu nhiên hoặc yêu cầu nhập
+      // SỬA 1: Dùng 'name' thay vì 'username'
+      name: name || "Admin " + Math.floor(Math.random() * 1000),
+
       email: email.toLowerCase(),
-      password: password, // Vẫn giữ logic không mã hóa theo yêu cầu của bạn
+
+      password: password,
+
       role: "admin",
-      isVerified: true,
-      status: "active",
+
+      isActive: true,
+
+      isEmailVerified: true,
     });
 
     await newAdmin.save();
 
-    console.log("✅ Admin mới được tạo bởi:", req.user.email);
+    // console.log("✅ Admin mới được tạo bởi:", req.user?.email);
 
     res.status(201).json({
       success: true,
@@ -59,6 +56,7 @@ export const createAdmin = async (req, res) => {
       data: {
         id: newAdmin._id,
         email: newAdmin.email,
+        name: newAdmin.name, // Trả về name
         role: newAdmin.role,
       },
     });
